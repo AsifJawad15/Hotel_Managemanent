@@ -107,9 +107,10 @@ INSERT INTO bookings (guest_id, room_id, check_in, check_out, adults, children, 
 (7, 4, '2024-01-10', '2024-01-13', 2, 1, 564.00, 0.00, 41.68, 605.68, 'Completed', 'Paid', 'Website', 'Crib needed'),
 (8, 19, '2024-03-15', '2024-03-20', 2, 0, 1050.00, 105.00, 69.83, 1014.83, 'Completed', 'Paid', 'Phone', 'Spa appointments'),
 (9, 10, '2024-02-25', '2024-02-28', 1, 0, 225.00, 11.25, 15.83, 229.58, 'Completed', 'Paid', 'Website', NULL),
-(10, 20, '2024-04-01', '2024-04-05', 2, 1, 1480.00, 148.00, 98.37, 1430.37, 'Completed', 'Paid', 'Website', 'River view room'),
+(10, 20, '2024-04-01', '2024-04-05', 2, 1, 1480.00, 148.00, 98.37, 1430.37, 'Completed', 'Paid', 'Website', 'River view room');
 
 -- Future bookings (confirmed)
+INSERT INTO bookings (guest_id, room_id, check_in, check_out, adults, children, total_amount, discount_amount, tax_amount, final_amount, booking_status, payment_status, booking_source, special_requests) VALUES
 (1, 6, '2024-11-15', '2024-11-20', 2, 0, 1575.00, 157.50, 104.71, 1522.21, 'Confirmed', 'Paid', 'Website', 'Anniversary celebration'),
 (2, 9, '2024-10-20', '2024-10-23', 2, 1, 636.00, 31.80, 44.70, 648.90, 'Confirmed', 'Pending', 'Phone', 'Baby cot required'),
 (3, 21, '2024-12-01', '2024-12-07', 2, 2, 2220.00, 333.00, 139.37, 2026.37, 'Confirmed', 'Partial', 'Website', 'Holiday package'),
@@ -117,6 +118,7 @@ INSERT INTO bookings (guest_id, room_id, check_in, check_out, adults, children, 
 (12, 23, '2024-11-25', '2024-11-30', 2, 0, 1050.00, 105.00, 69.83, 1014.83, 'Confirmed', 'Paid', 'Third-party', 'Thanksgiving stay');
 
 -- Some cancelled bookings for analysis
+INSERT INTO bookings (guest_id, room_id, check_in, check_out, adults, children, total_amount, discount_amount, tax_amount, final_amount, booking_status, payment_status, booking_source, special_requests) VALUES
 (5, 12, '2024-09-15', '2024-09-18', 2, 0, 570.00, 0.00, 42.11, 612.11, 'Cancelled', 'Refunded', 'Website', 'Trip cancelled due to emergency'),
 (7, 15, '2024-08-20', '2024-08-25', 1, 1, 375.00, 0.00, 27.69, 402.69, 'Cancelled', 'Refunded', 'Phone', 'Flight cancelled');
 
