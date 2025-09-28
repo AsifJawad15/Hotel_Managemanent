@@ -326,7 +326,7 @@ ADD CONSTRAINT chk_amounts_positive
 CHECK (total_amount >= 0 AND discount_amount >= 0 AND tax_amount >= 0 AND final_amount >= 0);
 
 -- Composite Indexes for Performance
-CREATE INDEX idx_booking_performance ON bookings(hotel_id, check_in, check_out, booking_status);
+CREATE INDEX idx_booking_performance ON bookings(room_id, check_in, check_out, booking_status);
 CREATE INDEX idx_events_performance ON events(hotel_id, event_date, event_status);
 CREATE INDEX idx_guest_loyalty ON guests(loyalty_points DESC, membership_level);
 
