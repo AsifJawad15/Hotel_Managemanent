@@ -1,0 +1,248 @@
+# Database Features Implementation Map
+
+This file maps where each database feature is implemented in the hotel management system.
+
+## DDL (Data Definition Language) Features
+
+### Table Creation & Constraints
+**File:** `db/enhanced_smart_stay.sql` (Lines 1-200)
+- **Location:** All CREATE TABLE statements with PRIMARY KEY, FOREIGN KEY, CHECK constraints
+- **Admin Interface:** View table structures via Database Interface queries
+
+### Indexes & Performance
+**File:** `db/enhanced_smart_stay.sql` (Lines 180-210)
+- **Location:** CREATE INDEX statements for performance optimization
+- **Admin Usage:** Query performance visible in admin reports
+
+## DML (Data Manipulation Language) Features
+
+### INSERT Operations
+**Files:**
+- `db/enhanced_smart_stay.sql` (Lines 211-280) - Sample data insertion
+- `pages/guest/guest_book_room_dates.php` (Lines 75-95) - Booking insertion with pricing
+- `pages/hotel/hotel_add_room.php` - Room insertion
+- `pages/admin/admin_database.php` - Custom INSERT via interface
+
+### UPDATE Operations  
+**Files:**
+- `db/plsql_procedures.sql` (Lines 20-60) - UpdateRoomPricesBasedOnDemand procedure
+- `db/plsql_procedures.sql` (Lines 100-150) - ProcessLoyaltyUpgrades procedure
+- `pages/guest/guest_book_room_dates.php` (Line 105) - Loyalty points update
+
+### DELETE Operations
+**Files:**
+- `pages/admin/admin_delete_hotel.php` - Cascading hotel deletion
+- `pages/admin/admin_delete_guest.php` - Guest deletion with cleanup
+- `pages/guest/guest_cancel_room.php` - Booking cancellation
+
+## SELECT Queries & Aggregates
+
+### Basic SELECT with Aggregates
+**Files:**
+- `pages/admin/admin_reports.php` (Lines 15-45) - Revenue statistics
+- `db/advanced_queries.sql` (Lines 150-200) - Revenue analysis examples
+
+### Window Functions
+**Files:**
+- `db/advanced_queries.sql` (Lines 200-250) - Revenue ranking with RANK(), LAG()
+- `pages/admin/admin_reports.php` (Lines 60-80) - Performance metrics
+
+### Complex JOINs
+**Files:**
+- `db/enhanced_smart_stay.sql` (Lines 320-350) - View definitions with multiple JOINs
+- `db/advanced_queries.sql` (Lines 280-320) - Self-join examples
+- `pages/guest/guest_my_bookings.php` - Multiple table JOINs for booking display
+
+## Subqueries
+
+### Correlated Subqueries
+**File:** `db/advanced_queries.sql` (Lines 20-50)
+- **Example:** Find hotels with above-average ratings
+- **Usage:** Available through admin database interface
+
+### Existence Subqueries  
+**File:** `db/advanced_queries.sql` (Lines 60-90)
+- **Example:** Rooms never booked, guests without reviews
+- **Admin Access:** Execute via Database Interface
+
+### Scalar Subqueries
+**File:** `db/advanced_queries.sql` (Lines 100-130)
+- **Example:** Guest's latest booking details
+- **Implementation:** In guest profile calculations
+
+## Set Operations
+
+### UNION Operations
+**File:** `db/advanced_queries.sql` (Lines 140-170)
+- **Example:** Combined user listing (guests, hotels, admins)
+- **Location:** Available in admin query interface
+
+### INTERSECT/EXCEPT Equivalents
+**File:** `db/advanced_queries.sql` (Lines 180-220)
+- **Example:** Guests with both room and event bookings
+- **Usage:** Analytics queries in admin reports
+
+## Views
+
+### hotel_performance View
+**File:** `db/enhanced_smart_stay.sql` (Lines 290-310)
+- **Admin Access:** `pages/admin/admin_reports.php` (Line 120)
+- **Usage:** Quick button "Hotel Performance View"
+
+### guest_booking_history View
+**File:** `db/enhanced_smart_stay.sql` (Lines 320-340)
+- **Frontend:** Guest booking history display
+- **Admin:** Comprehensive guest analysis
+
+### room_occupancy View  
+**File:** `db/enhanced_smart_stay.sql` (Lines 350-370)
+- **Admin Reports:** Real-time occupancy display
+- **Location:** `pages/admin/admin_reports.php` (Lines 180-200)
+
+### monthly_revenue_report View
+**File:** `db/enhanced_smart_stay.sql` (Lines 380-400)
+- **Admin Dashboard:** Monthly trend analysis
+- **Charts:** Revenue visualization in reports
+
+## Stored Procedures
+
+### CalculateLoyaltyPoints Procedure
+**File:** `db/enhanced_smart_stay.sql` (Lines 420-450)
+- **Called From:** `pages/guest/guest_book_room_dates.php` (Line 100)
+- **Usage:** Automatic loyalty calculation on booking completion
+
+### UpdateRoomPricesBasedOnDemand Procedure
+**File:** `db/plsql_procedures.sql` (Lines 20-70)
+- **Admin Access:** `pages/admin/admin_reports.php` - "Update Room Prices" button
+- **Features:** Cursor-based room iteration with demand analysis
+
+### GetAvailableRooms Procedure
+**File:** `db/enhanced_smart_stay.sql` (Lines 470-510)
+- **Usage:** Advanced room search with filters
+- **Parameters:** hotel_id, check_in, check_out, room_type
+
+### GenerateOccupancyReport Procedure
+**File:** `db/enhanced_smart_stay.sql` (Lines 520-560)
+- **Admin Interface:** Generate reports functionality
+- **Output:** Daily occupancy percentages with revenue
+
+### ProcessLoyaltyUpgrades Procedure
+**File:** `db/plsql_procedures.sql` (Lines 100-160)
+- **Admin Operations:** Batch membership upgrades
+- **Logic:** Complex criteria including spending and tenure
+
+### ScheduleRoomMaintenance Procedure
+**File:** `db/plsql_procedures.sql` (Lines 180-250)
+- **Features:** Cursor-based maintenance scheduling
+- **Criteria:** Usage patterns, cleaning schedules, booking density
+
+## Custom Functions
+
+### CalculateDynamicPrice Function
+**File:** `db/plsql_procedures.sql` (Lines 280-330)
+- **Usage:** `pages/guest/guest_book_room_dates.php` (Lines 50-55)
+- **Features:** Season, demand, weekend, advance booking adjustments
+
+### CalculateGuestSatisfactionScore Function
+**File:** `db/plsql_procedures.sql` (Lines 340-380)
+- **Admin Analytics:** Guest scoring system
+- **Factors:** Reviews, booking history, loyalty level
+
+### GetOptimalRoomAssignment Function
+**File:** `db/plsql_procedures.sql` (Lines 400-450)
+- **Usage:** Intelligent room recommendation system
+- **Criteria:** Guest membership, satisfaction, preferences
+
+### Utility Functions
+**File:** `db/enhanced_smart_stay.sql` (Lines 600-650)
+- **CalculateAge()** - Age calculation from birth date
+- **GetSeason()** - Season determination from date
+- **GetMembershipDiscount()** - Discount percentage by level
+
+## Triggers
+
+### Hotel Room Count Trigger
+**File:** `db/enhanced_smart_stay.sql` (Lines 670-690)
+- **Function:** Automatically update hotel.total_rooms on room changes
+- **Events:** AFTER INSERT, AFTER DELETE on rooms table
+
+### Booking Change Logging Trigger
+**File:** `db/enhanced_smart_stay.sql` (Lines 700-720)
+- **Function:** Log all booking modifications for audit
+- **Storage:** system_logs table with JSON old/new values
+
+### Event Participant Count Triggers
+**File:** `db/enhanced_smart_stay.sql` (Lines 730-770)
+- **Function:** Maintain current_participants count in events table
+- **Events:** INSERT, UPDATE, DELETE on event_bookings
+
+### Loyalty Auto-Calculation Trigger
+**File:** `db/enhanced_smart_stay.sql` (Lines 780-800)
+- **Function:** Auto-calculate loyalty points when booking completed
+- **Integration:** Calls CalculateLoyaltyPoints procedure
+
+## Admin Interface Database Features
+
+### Database Query Interface
+**File:** `pages/admin/admin_database.php`
+- **Lines 50-100:** Custom SQL execution
+- **Lines 120-150:** Predefined query buttons  
+- **Lines 180-220:** Stored procedure execution
+- **Lines 250-300:** Function usage examples
+
+### Analytics Dashboard
+**File:** `pages/admin/admin_reports.php`
+- **Lines 10-50:** Statistics calculation using aggregate functions
+- **Lines 80-120:** Top performing hotels with complex JOINs
+- **Lines 150-180:** Monthly revenue trends
+- **Lines 220-250:** Membership distribution analysis
+- **Lines 280-320:** Quick database operations
+
+### Enhanced Admin Home
+**File:** `pages/admin/admin_home.php`
+- **Lines 5-15:** Quick stats using aggregate queries
+- **Lines 60-100:** Feature navigation to database tools
+
+## Guest Interface Enhancements
+
+### Enhanced Booking System
+**File:** `pages/guest/guest_book_room_dates.php`
+- **Lines 20-30:** Dynamic pricing calculation using custom function
+- **Lines 40-60:** Membership discount application
+- **Lines 70-90:** Complex booking INSERT with full pricing breakdown
+- **Lines 100-110:** Loyalty points calculation via procedure call
+
+### Booking History Display
+**File:** `pages/guest/guest_my_bookings.php`
+- **Lines 15-40:** Complex JOINs for booking details
+- **Lines 50-80:** Event booking integration
+
+## Testing & Examples
+
+### Query Examples File
+**File:** `db/advanced_queries.sql`
+- **Lines 1-50:** Subquery examples
+- **Lines 60-120:** Set operations
+- **Lines 130-200:** Aggregate functions with window functions
+- **Lines 220-280:** Complex JOIN operations
+
+### Usage Instructions
+**File:** `DATABASE_FEATURES_GUIDE.md`
+- **Complete feature documentation**
+- **Usage examples for each feature**
+- **Testing instructions**
+
+## Quick Access Map
+
+| Feature Type | Primary File | Admin Access | Guest Usage |
+|-------------|--------------|--------------|-------------|
+| DDL | enhanced_smart_stay.sql | Database Interface | - |
+| DML | Multiple files | Database Interface | Booking forms |
+| Views | enhanced_smart_stay.sql | Reports Dashboard | Booking history |
+| Procedures | plsql_procedures.sql | Quick Operations | Auto-called |
+| Functions | plsql_procedures.sql | Query Interface | Pricing |
+| Triggers | enhanced_smart_stay.sql | System Logs | Transparent |
+| Analytics | admin_reports.php | Direct access | - |
+| Custom Queries | admin_database.php | Full interface | - |
+
+This map provides exact locations of every database feature implementation for easy reference and understanding.
