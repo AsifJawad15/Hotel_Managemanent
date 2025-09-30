@@ -69,6 +69,99 @@ BEGIN
     CLOSE room_cursor;
 END//
 
+-- 1.1. Manual room price update procedure with custom percentage
+CREATE PROCEDURE UpdateRoomPricesManual(
+    IN hotel_id_param INT,
+    IN percentage_change DECIMAL(5,2)
+)
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_room_id INT;
+    DECLARE v_current_price DECIMAL(10,2);
+    DECLARE v_new_price DECIMAL(10,2);
+    DECLARE v_room_number VARCHAR(50);
+    DECLARE rooms_updated INT DEFAULT 0;
+    DECLARE multiplier DECIMAL(5,4);
+    
+    -- Calculate multiplier from percentage (e.g., 10% = 1.10, -5% = 0.95)
+    SET multiplier = 1 + (percentage_change / 100);
+    
+    -- Cursor to iterate through hotel rooms or all rooms
+    DECLARE room_cursor CURSOR FOR 
+        SELECT room_id, room_number, price 
+        FROM rooms 
+        WHERE is_active = TRUE 
+        AND (hotel_id_param IS NULL OR hotel_id = hotel_id_param);
+    
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    -- Create temp table to store update results
+    CREATE TEMPORARY TABLE IF NOT EXISTS temp_price_updates (
+        room_id INT,
+        room_number VARCHAR(50),
+        old_price DECIMAL(10,2),
+        new_price DECIMAL(10,2),
+        price_change DECIMAL(10,2),
+        percentage_applied DECIMAL(5,2)
+    );
+    
+    OPEN room_cursor;
+    
+    update_loop: LOOP
+        FETCH room_cursor INTO v_room_id, v_room_number, v_current_price;
+        
+        IF done THEN
+            LEAVE update_loop;
+        END IF;
+        
+        -- Calculate new price
+        SET v_new_price = ROUND(v_current_price * multiplier, 2);
+        
+        -- Ensure minimum price of $10
+        IF v_new_price < 10.00 THEN
+            SET v_new_price = 10.00;
+        END IF;
+        
+        -- Update room price
+        UPDATE rooms SET price = v_new_price WHERE room_id = v_room_id;
+        
+        -- Store update info
+        INSERT INTO temp_price_updates VALUES (
+            v_room_id, v_room_number, v_current_price, v_new_price,
+            (v_new_price - v_current_price), percentage_change
+        );
+        
+        -- Log the change
+        INSERT INTO system_logs (user_type, action, table_name, record_id, old_values, new_values)
+        VALUES (
+            'Admin', 
+            'MANUAL_PRICE_UPDATE', 
+            'rooms', 
+            v_room_id,
+            JSON_OBJECT('old_price', v_current_price),
+            JSON_OBJECT('new_price', v_new_price, 'percentage_change', percentage_change)
+        );
+        
+        SET rooms_updated = rooms_updated + 1;
+        
+    END LOOP;
+    
+    CLOSE room_cursor;
+    
+    -- Return summary of updates
+    SELECT 
+        rooms_updated as total_rooms_updated,
+        percentage_change as percentage_applied,
+        SUM(price_change) as total_price_change,
+        AVG(old_price) as avg_old_price,
+        AVG(new_price) as avg_new_price
+    FROM temp_price_updates;
+    
+    -- Return detailed updates
+    SELECT * FROM temp_price_updates ORDER BY room_id;
+    
+END//
+
 -- 2. Procedure to generate monthly performance report for all hotels
 CREATE PROCEDURE GenerateMonthlyHotelReport(
     IN target_year INT,

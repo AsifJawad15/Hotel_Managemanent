@@ -7,7 +7,11 @@ $hotel = $conn->query("SELECT * FROM hotels WHERE hotel_id=$hid")->fetch_assoc()
 if (!$hotel) { header("Location: guest_search.php"); exit(); }
 
 // Rooms
-$roomsRes = $conn->query("SELECT * FROM rooms WHERE hotel_id=$hid ORDER BY room_id");
+$roomsRes = $conn->query("SELECT r.*, rt.type_name, rt.description AS type_description, rt.amenities AS type_amenities
+                          FROM rooms r
+                          JOIN room_types rt ON r.type_id = rt.type_id
+                          WHERE r.hotel_id=$hid
+                          ORDER BY r.room_number");
 $rooms = [];
 while ($roomsRes && $r = $roomsRes->fetch_assoc()) $rooms[] = $r;
 
@@ -17,14 +21,23 @@ $ids = array_map(fn($x) => $x['room_id'], $rooms);
 $bookings = [];
 if ($ids) {
   $in = implode(',', array_map('intval', $ids));
-  $b = $conn->query("SELECT room_id, guest_id FROM bookings WHERE room_id IN ($in)");
+  $sql = "SELECT room_id, guest_id
+          FROM bookings
+          WHERE room_id IN ($in)
+            AND booking_status IN ('Confirmed','Completed')
+            AND check_out >= CURDATE()";
+  $b = $conn->query($sql);
   while ($b && $row = $b->fetch_assoc()) $bookings[(int)$row['room_id']] = (int)$row['guest_id'];
 }
 
 // Events
-$events = $conn->query("SELECT * FROM events WHERE hotel_id=$hid ORDER BY event_date");
-
 $guest_id = (int)$_SESSION['guest_id'];
+$eventsRes = $conn->query("SELECT * FROM events WHERE hotel_id=$hid ORDER BY event_date");
+$eventBookings = [];
+$ebRes = $conn->query("SELECT event_id FROM event_bookings WHERE guest_id=$guest_id");
+while ($ebRes && $row = $ebRes->fetch_assoc()) {
+  $eventBookings[(int)$row['event_id']] = true;
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -55,22 +68,31 @@ $guest_id = (int)$_SESSION['guest_id'];
       if ($imgs && $imgs->num_rows) {
         while ($im = $imgs->fetch_assoc()):
     ?>
-      <img src="../../images/hotels/<?= htmlspecialchars($im['image_path']) ?>" alt="Hotel image">
+      <?php
+        $imgPath = $im['image_path'];
+        if (!preg_match('/^(https?:)?\//', $imgPath)) {
+          $imgPath = '../../' . ltrim($imgPath, '/');
+        }
+      ?>
+      <img src="<?= htmlspecialchars($imgPath) ?>" alt="Hotel image">
     <?php endwhile; } else { echo "<p>No images yet.</p>"; } ?>
   </div>
 
   <h3 style="margin-top:24px;">Rooms</h3>
   <table class="table">
-    <thead><tr><th>#</th><th>Type</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
+    <thead><tr><th>#</th><th>Type</th><th>Description</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
     <tbody>
       <?php foreach ($rooms as $r):
         $rid = (int)$r['room_id'];
         $bookedBy = $bookings[$rid] ?? null;
+        $typeName = $r['type_name'] ?? 'N/A';
+        $typeDesc = $r['type_description'] ? substr($r['type_description'], 0, 90) . (strlen($r['type_description']) > 90 ? '…' : '') : '—';
       ?>
       <tr>
         <td><?= htmlspecialchars($r['room_number']) ?></td>
-        <td><?= htmlspecialchars($r['type']) ?></td>
-        <td><?= htmlspecialchars($r['price']) ?></td>
+        <td><?= htmlspecialchars($typeName) ?></td>
+        <td><?= htmlspecialchars($typeDesc) ?></td>
+        <td>$<?= number_format((float)$r['price'], 2) ?></td>
         <td><?= $bookedBy ? 'Booked' : 'Available' ?></td>
         <td>
           <?php if (!$bookedBy): ?>
@@ -90,17 +112,19 @@ $guest_id = (int)$_SESSION['guest_id'];
 
   <h3 style="margin-top:24px;">Events</h3>
   <table class="table">
-    <thead><tr><th>Name</th><th>Date</th><th>Action</th></tr></thead>
+    <thead><tr><th>Name</th><th>Type</th><th>Date</th><th>Status</th><th>Price</th><th>Action</th></tr></thead>
     <tbody>
-      <?php while ($e = $events->fetch_assoc()):
-        $eid = (int)$e['event_id'];
-        $table = "hotel{$hid}_event{$eid}";
-        $ck = $conn->query("SELECT * FROM $table WHERE guest_id=$guest_id");
-        $mine = ($ck && $ck->num_rows > 0);
+      <?php if ($eventsRes && $eventsRes->num_rows):
+        while ($e = $eventsRes->fetch_assoc()):
+          $eid = (int)$e['event_id'];
+          $mine = $eventBookings[$eid] ?? false;
       ?>
       <tr>
         <td><?= htmlspecialchars($e['event_name']) ?></td>
+        <td><?= htmlspecialchars($e['event_type']) ?></td>
         <td><?= htmlspecialchars($e['event_date']) ?></td>
+        <td><?= htmlspecialchars($e['event_status']) ?></td>
+        <td><?= $e['price'] ? '$' . number_format((float)$e['price'], 2) : 'Free' ?></td>
         <td>
           <?php if (!$mine): ?>
             <a class="btn btn-primary" href="guest_book_event.php?event_id=<?= $eid ?>&hotel_id=<?= $hid ?>">Book Event</a>
@@ -109,7 +133,9 @@ $guest_id = (int)$_SESSION['guest_id'];
           <?php endif; ?>
         </td>
       </tr>
-      <?php endwhile; ?>
+      <?php endwhile; else: ?>
+        <tr><td colspan="6">No events scheduled yet.</td></tr>
+      <?php endif; ?>
     </tbody>
   </table>
 </div>

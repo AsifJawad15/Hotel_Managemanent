@@ -29,6 +29,7 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
     <a href="admin_hotels.php">Hotels</a>
     <a href="admin_events.php">Events</a>
     <a href="admin_guests.php">Guests</a>
+    <a href="admin_room_price_update.php">Price Management</a>
     <a href="admin_reports.php">Reports</a>
     <a href="admin_database.php">Database</a>
     <a href="admin_logout.php">Logout</a>
@@ -105,6 +106,13 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
       <a href="admin_events.php">
         <h4>🎉 Event Management</h4>
         <p>Comprehensive event booking and management system</p>
+      </a>
+    </div>
+    
+    <div class="feature-card">
+      <a href="admin_room_price_update.php">
+        <h4>💰 Price Management</h4>
+        <p>Update room prices by percentage for specific hotels</p>
       </a>
     </div>
     
