@@ -115,72 +115,7 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
         <p>Update room prices by percentage for specific hotels</p>
       </a>
     </div>
-    
-    <div class="feature-card">
-      <a href="#" onclick="showDatabaseFeatures()">
-        <h4>⚡ Quick Operations</h4>
-        <p>Run procedures, update prices, process loyalty upgrades</p>
-      </a>
-    </div>
-  </div>
-
-  <!-- Database Features Overview -->
-  <div class="dashboard-card">
-    <h3>Database Features Implemented</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 15px;">
-      <div>
-        <h4>📝 DDL Features</h4>
-        <ul>
-          <li>Enhanced table structure with constraints</li>
-          <li>Foreign key relationships</li>
-          <li>Indexes for performance</li>
-          <li>Check constraints for data integrity</li>
-        </ul>
-      </div>
-      
-      <div>
-        <h4>🔧 DML Operations</h4>
-        <ul>
-          <li>Complex INSERT, UPDATE, DELETE</li>
-          <li>Bulk data operations</li>
-          <li>Transaction management</li>
-          <li>Data manipulation procedures</li>
-        </ul>
-      </div>
-      
-      <div>
-        <h4>📊 Advanced Queries</h4>
-        <ul>
-          <li>Subqueries and correlated subqueries</li>
-          <li>Set operations (UNION, INTERSECT)</li>
-          <li>Window functions and analytics</li>
-          <li>Aggregate functions with grouping</li>
-        </ul>
-      </div>
-      
-      <div>
-        <h4>👁️ Views & Procedures</h4>
-        <ul>
-          <li>Performance analysis views</li>
-          <li>Stored procedures with cursors</li>
-          <li>Custom functions for calculations</li>
-          <li>Automated maintenance procedures</li>
-        </ul>
-      </div>
-    </div>
   </div>
 </div>
 
-<script>
-function showDatabaseFeatures() {
-  alert('Quick Database Operations:\n\n' +
-        '• Update Room Prices Based on Demand\n' +
-        '• Process Loyalty Program Upgrades\n' +
-        '• Generate Hotel Performance Reports\n' +
-        '• Schedule Room Maintenance\n' +
-        '• Calculate Guest Satisfaction Scores\n' +
-        '• Analyze Seasonal Booking Patterns\n\n' +
-        'Access these through the Database Interface or Reports section.');
-}
-</script>
 </body></html>
