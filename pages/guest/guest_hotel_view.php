@@ -61,23 +61,6 @@ while ($ebRes && $row = $ebRes->fetch_assoc()) {
   <h3>Description</h3>
   <p><?= nl2br(htmlspecialchars($hotel['description'])) ?></p>
 
-  <h3>Gallery</h3>
-  <div class="gallery">
-    <?php
-      $imgs = $conn->query("SELECT * FROM hotel_images WHERE hotel_id=$hid ORDER BY image_id DESC");
-      if ($imgs && $imgs->num_rows) {
-        while ($im = $imgs->fetch_assoc()):
-    ?>
-      <?php
-        $imgPath = $im['image_path'];
-        if (!preg_match('/^(https?:)?\//', $imgPath)) {
-          $imgPath = '../../' . ltrim($imgPath, '/');
-        }
-      ?>
-      <img src="<?= htmlspecialchars($imgPath) ?>" alt="Hotel image">
-    <?php endwhile; } else { echo "<p>No images yet.</p>"; } ?>
-  </div>
-
   <h3 style="margin-top:24px;">Rooms</h3>
   <table class="table">
     <thead><tr><th>#</th><th>Type</th><th>Description</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>

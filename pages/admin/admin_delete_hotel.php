@@ -19,13 +19,6 @@ if ($hotel_id > 0) {
     $conn->query("DROP TABLE IF EXISTS hotel{$hotel_id}_event{$eid}");
   }
   $conn->query("DELETE FROM events WHERE hotel_id=$hotel_id");
-  // Delete images (disk + db)
-  $imgs = $conn->query("SELECT image_path FROM hotel_images WHERE hotel_id=$hotel_id");
-  while($imgs && $im = $imgs->fetch_assoc()) {
-    $p = "../../images/hotels/" . $im['image_path'];
-    if (is_file($p)) @unlink($p);
-  }
-  $conn->query("DELETE FROM hotel_images WHERE hotel_id=$hotel_id");
   // Finally hotel
   $conn->query("DELETE FROM hotels WHERE hotel_id=$hotel_id");
 }
