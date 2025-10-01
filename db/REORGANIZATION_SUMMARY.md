@@ -10,7 +10,7 @@
 ### 1. Analyzed Original Database
 - Reviewed complete `smart_stay.sql` dump (2243 lines)
 - Identified all components:
-  - 17 tables with relationships
+  - 16 tables with relationships
   - 9 stored procedures
   - 4 functions
   - 10 triggers
@@ -22,7 +22,7 @@
 The original monolithic SQL file has been reorganized into **7 separate files**:
 
 #### **01_schema.sql** (Core Structure)
-- All 17 table definitions
+- All 16 table definitions
 - Primary keys and auto-increment settings
 - Foreign key relationships
 - Unique constraints
@@ -36,7 +36,7 @@ The original monolithic SQL file has been reorganized into **7 separate files**:
 - room_types, rooms
 - bookings, events, event_bookings
 - reviews, services, service_bookings
-- payments, staff, hotel_images
+- payments, staff
 - maintenance_schedule, system_logs
 
 #### **02_procedures.sql** (Business Logic)
@@ -217,7 +217,7 @@ SmartStay/
 ## Key Features Preserved
 
 ### From Original Database
-✅ All 17 tables with relationships  
+✅ All 16 tables with relationships  
 ✅ All foreign key constraints  
 ✅ All check constraints  
 ✅ All stored procedures (9)  
@@ -243,7 +243,7 @@ SmartStay/
 
 | Component | Count | Description |
 |-----------|-------|-------------|
-| **Tables** | 17 | Core data structure |
+| **Tables** | 16 | Core data structure |
 | **Stored Procedures** | 9 | Business logic |
 | **Functions** | 4 | Reusable calculations |
 | **Triggers** | 10 | Automated actions |
@@ -282,7 +282,7 @@ SmartStay/
 
 After installation, verify:
 
-- [ ] All 17 tables created
+- [ ] All 16 tables created
 - [ ] All 9 procedures exist (`SHOW PROCEDURE STATUS`)
 - [ ] All 4 functions exist (`SHOW FUNCTION STATUS`)
 - [ ] All 10 triggers exist (`SHOW TRIGGERS`)

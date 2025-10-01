@@ -125,13 +125,12 @@ USE smart_stay;
 SHOW TABLES;
 ```
 
-Expected output (17 tables):
+Expected output (16 tables):
 - admins
 - bookings
 - event_bookings
 - events
 - guests
-- hotel_images
 - hotels
 - maintenance_schedule
 - payments
@@ -385,7 +384,7 @@ db/
 Your SmartStay database is now installed and ready to use!
 
 **Database:** smart_stay  
-**Tables:** 17  
+**Tables:** 16  
 **Procedures:** 9  
 **Functions:** 4  
 **Triggers:** 10  

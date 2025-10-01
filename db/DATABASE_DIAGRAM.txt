@@ -106,14 +106,14 @@
 │                       HOTEL OPERATIONS                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-    ┌─────────────┐    ┌──────────────┐    ┌─────────────────────┐
-    │   STAFF     │    │  SERVICES    │    │ HOTEL_IMAGES        │
-    ├─────────────┤    ├──────────────┤    ├─────────────────────┤
-    │staff_id     │    │service_id    │    │image_id             │
-    │hotel_id (FK)│    │hotel_id (FK) │    │hotel_id (FK)        │
-    │position     │    │service_name  │    │room_id (FK)         │
-    │department   │    │price         │    │image_path           │
-    └──────┬──────┘    └──────────────┘    └─────────────────────┘
+    ┌─────────────┐    ┌──────────────┐
+    │   STAFF     │    │  SERVICES    │
+    ├─────────────┤    ├──────────────┤
+    │staff_id     │    │service_id    │
+    │hotel_id (FK)│    │hotel_id (FK) │
+    │position     │    │service_name  │
+    │department   │    │price         │
+    └──────┬──────┘    └──────────────┘
            │
            │ assigned_to
            ▼

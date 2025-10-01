@@ -294,24 +294,6 @@ CREATE TABLE `staff` (
   CONSTRAINT `fk_staff_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table: hotel_images
-CREATE TABLE `hotel_images` (
-  `image_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_id` int(11) NOT NULL,
-  `room_id` int(11) DEFAULT NULL,
-  `image_path` varchar(255) NOT NULL,
-  `image_type` enum('Hotel','Room','Amenity','Event') DEFAULT 'Hotel',
-  `caption` varchar(255) DEFAULT NULL,
-  `is_primary` tinyint(1) DEFAULT 0,
-  `display_order` int(11) DEFAULT 0,
-  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`image_id`),
-  KEY `idx_image_hotel` (`hotel_id`),
-  KEY `idx_image_room` (`room_id`),
-  CONSTRAINT `fk_image_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_image_room` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Table: maintenance_schedule
 CREATE TABLE `maintenance_schedule` (
   `schedule_id` int(11) NOT NULL AUTO_INCREMENT,

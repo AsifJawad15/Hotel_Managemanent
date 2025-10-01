@@ -19,7 +19,6 @@ TABLE RELATIONSHIPS
    |-- Has Many --> REVIEWS
    |-- Has Many --> SERVICES
    |-- Has Many --> STAFF
-   |-- Has Many --> HOTEL_IMAGES
 
 2. GUESTS
    - guest_id (PK)
@@ -35,7 +34,6 @@ TABLE RELATIONSHIPS
    |
    |-- Has Many --> BOOKINGS
    |-- Has Many --> MAINTENANCE_SCHEDULE
-   |-- Has Many --> HOTEL_IMAGES
 
 4. BOOKINGS
    - booking_id (PK)
@@ -269,18 +267,6 @@ hire_date
 is_active
 created_at
 updated_at
-
-TABLE: hotel_images
--------------------
-image_id (PK, AUTO_INCREMENT)
-hotel_id (FK → hotels)
-room_id (FK → rooms, NULLABLE)
-image_path
-image_type (ENUM: Hotel, Room, Amenity, Event)
-caption
-is_primary (DEFAULT: 0)
-display_order (DEFAULT: 0)
-uploaded_at
 
 TABLE: maintenance_schedule
 ---------------------------
