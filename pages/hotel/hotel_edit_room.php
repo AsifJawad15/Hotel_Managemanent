@@ -87,7 +87,7 @@ if ($r['amenities']) {
             <option value="">Select Room Type</option>
             <?php while($type = $room_types->fetch_assoc()): ?>
                 <option value="<?= $type['type_id'] ?>" <?= $type['type_id'] == $r['type_id'] ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($type['type_name']) ?> - $<?= number_format($type['base_price'], 2) ?>
+                    <?= htmlspecialchars($type['type_name']) ?>
                 </option>
             <?php endwhile; ?>
         </select>

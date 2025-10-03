@@ -16,7 +16,7 @@ if (isset($_POST['save'])) {
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="../../css/style.css"><title>My Profile</title></head>
 <body>
-<div class="header"><div>My Profile</div><div class="nav"><a href="guest_home.php">Home</a> <a href="guest_logout.php">Logout</a></div></div>
+<div class="header"><div>My Profile</div><div class="nav"><a href="guest_home.php">Home</a> <a href="guest_search.php">Search</a> <a href="guest_my_bookings.php">My Bookings</a> <a href="guest_my_reviews.php">My Reviews</a> <a href="guest_logout.php">Logout</a></div></div>
 <div class="main">
   <?php if (!empty($msg)) echo "<p class='notice'>$msg</p>"; ?>
   <?php if (!empty($error)) echo "<p class='error'>$error</p>"; ?>

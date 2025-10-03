@@ -51,8 +51,11 @@ while ($ebRes && $row = $ebRes->fetch_assoc()) {
 <div class="header">
   <div><?= htmlspecialchars($hotel['hotel_name']) ?></div>
   <div class="nav">
-    <a href="guest_search.php">Back</a>
+    <a href="guest_home.php">Home</a>
+    <a href="guest_search.php">Search</a>
     <a href="guest_my_bookings.php">My Bookings</a>
+    <a href="guest_my_reviews.php">My Reviews</a>
+    <a href="guest_profile.php">Profile</a>
     <a href="guest_logout.php">Logout</a>
   </div>
 </div>

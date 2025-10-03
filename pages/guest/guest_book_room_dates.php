@@ -172,8 +172,10 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['check_in'], $_POST['che
 <div class="header">
   <div>Book Room – <?= htmlspecialchars($room['hotel_name']) ?></div>
   <div class="nav">
-    <a href="guest_hotel_view.php?hotel_id=<?= $hotel_id ?>">Back</a>
+    <a href="guest_home.php">Home</a>
+    <a href="guest_hotel_view.php?hotel_id=<?= $hotel_id ?>">Back to Hotel</a>
     <a href="guest_my_bookings.php">My Bookings</a>
+    <a href="guest_my_reviews.php">My Reviews</a>
     <a href="guest_logout.php">Logout</a>
   </div>
 </div>

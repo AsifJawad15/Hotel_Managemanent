@@ -52,7 +52,7 @@ if (isset($_POST['save'])) {
         <select name="type_id" required>
             <option value="">Select Room Type</option>
             <?php while($type = $room_types->fetch_assoc()): ?>
-                <option value="<?= $type['type_id'] ?>"><?= htmlspecialchars($type['type_name']) ?> - $<?= number_format($type['base_price'], 2) ?></option>
+                <option value="<?= $type['type_id'] ?>"><?= htmlspecialchars($type['type_name']) ?></option>
             <?php endwhile; ?>
         </select>
     </div>

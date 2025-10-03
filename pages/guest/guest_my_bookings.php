@@ -4,32 +4,32 @@ require_once("../../includes/auth_guest.php");
 
 $gid = (int)$_SESSION['guest_id'];
 
-// Room bookings (join hotels & rooms)
+// Room bookings (join hotels & rooms & room_types)
 $roomBookings = $conn->query("
-  SELECT b.booking_id, b.check_in, b.check_out, b.total_amount,
-         r.room_id, r.room_number, r.type, r.price,
-         h.hotel_id, h.hotel_name
+  SELECT b.booking_id, b.check_in, b.check_out, b.total_amount, b.booking_status,
+         r.room_id, r.room_number, r.price,
+         rt.type_name as type,
+         h.hotel_id, h.hotel_name,
+         (SELECT COUNT(*) FROM reviews WHERE booking_id = b.booking_id) as has_review
   FROM bookings b
   JOIN rooms r  ON b.room_id = r.room_id
   JOIN hotels h ON r.hotel_id = h.hotel_id
+  JOIN room_types rt ON r.type_id = rt.type_id
   WHERE b.guest_id = $gid
   ORDER BY b.booking_id DESC
 ");
 
-// Event bookings: scan events and check the per-event tables
-$eventRows = [];
-$events = $conn->query("SELECT e.*, h.hotel_name FROM events e JOIN hotels h ON e.hotel_id=h.hotel_id ORDER BY e.event_date DESC");
-if ($events) {
-  while ($e = $events->fetch_assoc()) {
-    $hid = (int)$e['hotel_id']; $eid = (int)$e['event_id'];
-    $t = "hotel{$hid}_event{$eid}";
-    // try a cheap existence + membership check
-    $chk = $conn->query("SELECT 1 FROM `$t` WHERE guest_id=$gid LIMIT 1");
-    if ($chk && $chk->num_rows > 0) {
-      $eventRows[] = $e;
-    }
-  }
-}
+// Event bookings: use the event_bookings table
+$eventBookings = $conn->query("
+  SELECT e.event_id, e.event_name, e.event_date, e.start_time, e.price,
+         h.hotel_id, h.hotel_name,
+         eb.event_booking_id, eb.participants, eb.amount_paid, eb.booking_status
+  FROM event_bookings eb
+  JOIN events e ON eb.event_id = e.event_id
+  JOIN hotels h ON e.hotel_id = h.hotel_id
+  WHERE eb.guest_id = $gid
+  ORDER BY e.event_date DESC
+");
 ?>
 <!DOCTYPE html>
 <html>
@@ -44,6 +44,9 @@ if ($events) {
   <div>My Bookings</div>
   <div class="nav">
     <a href="guest_home.php">Home</a>
+    <a href="guest_search.php">Search Hotels</a>
+    <a href="guest_my_reviews.php">My Reviews</a>
+    <a href="guest_profile.php">Profile</a>
     <a href="guest_logout.php">Logout</a>
   </div>
 </div>
@@ -59,7 +62,8 @@ if ($events) {
           <th>Room</th>
           <th>Stay</th>
           <th>Total</th>
-          <th>Action</th>
+          <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -70,6 +74,8 @@ if ($events) {
           $do = new DateTime($b['check_out']);
           $nights = $do->diff($di)->days;
         }
+        $is_completed = ($b['booking_status'] == 'Completed');
+        $is_past = (strtotime($b['check_out']) < time());
       ?>
         <tr>
           <td><?= (int)$b['booking_id'] ?></td>
@@ -78,8 +84,28 @@ if ($events) {
           <td><?= htmlspecialchars($b['check_in']) ?> → <?= htmlspecialchars($b['check_out']) ?> (<?= (int)$nights ?> nights)</td>
           <td>$<?= htmlspecialchars(number_format((float)$b['total_amount'],2)) ?></td>
           <td>
-            <a class="btn btn-danger" onclick="return confirmDelete();"
-               href="guest_cancel_room.php?booking_id=<?= (int)$b['booking_id'] ?>">Cancel</a>
+            <span class="badge badge-<?= $is_completed ? 'success' : 'info' ?>">
+              <?= htmlspecialchars($b['booking_status'] ?? 'Confirmed') ?>
+            </span>
+          </td>
+          <td>
+            <?php if (($is_completed || $is_past) && $b['has_review'] == 0): ?>
+              <!-- Show Write Review for completed OR past bookings -->
+              <a class="btn btn-primary" href="guest_write_review.php?booking_id=<?= (int)$b['booking_id'] ?>">
+                ⭐ Write Review
+              </a>
+            <?php elseif ($b['has_review'] > 0): ?>
+              <!-- Already reviewed -->
+              <a class="btn" href="guest_my_reviews.php" style="background: #10b981; color: white;">
+                ✓ Reviewed
+              </a>
+            <?php elseif (!$is_past): ?>
+              <!-- Future/current booking - can cancel -->
+              <a class="btn btn-danger" onclick="return confirmDelete();"
+                 href="guest_cancel_room.php?booking_id=<?= (int)$b['booking_id'] ?>">Cancel</a>
+            <?php else: ?>
+              <span style="color: #94a3b8;">—</span>
+            <?php endif; ?>
           </td>
         </tr>
       <?php endwhile; ?>
@@ -90,28 +116,40 @@ if ($events) {
   <?php endif; ?>
 
   <h2 style="margin-top:28px;">Event Bookings</h2>
-  <?php if (count($eventRows)): ?>
+  <?php if ($eventBookings && $eventBookings->num_rows > 0): ?>
     <table class="table">
       <thead>
         <tr>
           <th>Hotel</th>
           <th>Event</th>
           <th>Date</th>
+          <th>Time</th>
+          <th>Participants</th>
+          <th>Amount</th>
+          <th>Status</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
-      <?php foreach ($eventRows as $e): ?>
+      <?php while ($eb = $eventBookings->fetch_assoc()): ?>
         <tr>
-          <td><?= htmlspecialchars($e['hotel_name']) ?></td>
-          <td><?= htmlspecialchars($e['event_name']) ?></td>
-          <td><?= htmlspecialchars($e['event_date']) ?></td>
+          <td><?= htmlspecialchars($eb['hotel_name']) ?></td>
+          <td><?= htmlspecialchars($eb['event_name']) ?></td>
+          <td><?= htmlspecialchars($eb['event_date']) ?></td>
+          <td><?= htmlspecialchars($eb['start_time']) ?></td>
+          <td><?= (int)$eb['participants'] ?></td>
+          <td>$<?= number_format((float)$eb['amount_paid'], 2) ?></td>
+          <td><span class="badge badge-info"><?= htmlspecialchars($eb['booking_status']) ?></span></td>
           <td>
-            <a class="btn btn-danger" onclick="return confirmDelete();"
-               href="guest_cancel_event.php?event_id=<?= (int)$e['event_id'] ?>&hotel_id=<?= (int)$e['hotel_id'] ?>">Cancel</a>
+            <?php if ($eb['booking_status'] === 'Confirmed'): ?>
+              <a class="btn btn-danger" onclick="return confirmDelete();"
+                 href="guest_cancel_event.php?event_booking_id=<?= (int)$eb['event_booking_id'] ?>">Cancel</a>
+            <?php else: ?>
+              <span class="text-muted">—</span>
+            <?php endif; ?>
           </td>
         </tr>
-      <?php endforeach; ?>
+      <?php endwhile; ?>
       </tbody>
     </table>
   <?php else: ?>

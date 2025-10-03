@@ -7,7 +7,7 @@ $res = ($q==='') ? $conn->query("SELECT * FROM hotels ORDER BY hotel_id DESC")
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="../../css/style.css"><title>Search Hotels</title></head>
 <body>
-<div class="header"><div>Search Hotels</div><div class="nav"><a href="guest_home.php">Home</a> <a href="guest_logout.php">Logout</a></div></div>
+<div class="header"><div>Search Hotels</div><div class="nav"><a href="guest_home.php">Home</a> <a href="guest_my_bookings.php">My Bookings</a> <a href="guest_my_reviews.php">My Reviews</a> <a href="guest_profile.php">Profile</a> <a href="guest_logout.php">Logout</a></div></div>
 <div class="main">
   <form method="get" class="form-container" style="margin-bottom:16px;">
     <div class="form-group"><label>Keyword</label><input type="text" name="q" value="<?= htmlspecialchars($q) ?>"></div>

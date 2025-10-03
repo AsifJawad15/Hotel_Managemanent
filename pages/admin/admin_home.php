@@ -24,13 +24,12 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
 </head>
 <body>
 <div class="header">
-  <div>Welcome, Admin - Enhanced Hotel Management System</div>
+  <div>Welcome, Admin - Hotel Management System</div>
   <div class="nav">
     <a href="admin_hotels.php">Hotels</a>
-    <a href="admin_events.php">Events</a>
     <a href="admin_guests.php">Guests</a>
-    <a href="admin_room_price_update.php">Price Management</a>
-    <a href="admin_reports.php">Reports</a>
+    <a href="admin_events.php">Events</a>
+    <a href="admin_room_price_update.php">Pricing</a>
     <a href="admin_database.php">Database</a>
     <a href="admin_logout.php">Logout</a>
   </div>
@@ -71,16 +70,9 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
     </div>
   </div>
 
-  <!-- Enhanced Features -->
-  <h3>Enhanced Database Features</h3>
+  <!-- Management Features -->
+  <h3>System Management</h3>
   <div class="feature-grid">
-    <div class="feature-card">
-      <a href="admin_reports.php">
-        <h4>📊 Analytics Dashboard</h4>
-        <p>View comprehensive reports, statistics, and performance metrics</p>
-      </a>
-    </div>
-    
     <div class="feature-card">
       <a href="admin_database.php">
         <h4>💾 Database Interface</h4>
@@ -91,21 +83,21 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
     <div class="feature-card">
       <a href="admin_hotels.php">
         <h4>🏨 Hotel Management</h4>
-        <p>Manage hotels, rooms, services, and staff with advanced features</p>
+        <p>Add, Edit, Delete hotels | Manage services, staff, and hotel details</p>
       </a>
     </div>
     
     <div class="feature-card">
       <a href="admin_guests.php">
-        <h4>👥 Guest Analytics</h4>
-        <p>Analyze guest behavior, loyalty programs, and satisfaction scores</p>
+        <h4>👥 Guest Management</h4>
+        <p>Create, Edit, Delete guest accounts | View loyalty and booking history</p>
       </a>
     </div>
     
     <div class="feature-card">
       <a href="admin_events.php">
         <h4>🎉 Event Management</h4>
-        <p>Comprehensive event booking and management system</p>
+        <p>Create, Edit, Delete events | Manage bookings and participants</p>
       </a>
     </div>
     
