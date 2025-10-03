@@ -1,7 +1,8 @@
-# SmartStay Database Documentation
+# SmartStay Database Setup Guide
 
-## Overview
-SmartStay is a comprehensive hotel management system database designed to handle all aspects of hotel operations including room bookings, event management, guest loyalty programs, staff management, and more.
+## 📁 File Structure (UPDATED October 2025)
+
+The database has been **completely reorganized** into **7 sequential SQL files** for better maintainability:
 
 ## Database Structure
 

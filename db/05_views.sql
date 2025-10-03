@@ -1,7 +1,10 @@
--- =====================================================
+-- ============================================================================
 -- SMARTSTAY DATABASE VIEWS
--- Pre-defined queries for common business reports
--- =====================================================
+-- ============================================================================
+-- File: 05_views.sql
+-- Purpose: Pre-defined queries for common business reports and analytics
+-- Run this file after 04_triggers.sql
+-- ============================================================================
 
 USE `smart_stay`;
 
@@ -169,48 +172,16 @@ GROUP BY e.event_id, h.hotel_name, h.city, e.event_name, e.description,
          e.max_participants, e.current_participants, e.price, e.event_status
 ORDER BY e.event_date ASC;
 
--- =====================================================
--- VIEW: vw_maintenance_dashboard
--- Maintenance schedule and status overview
--- =====================================================
-CREATE OR REPLACE VIEW `vw_maintenance_dashboard` AS
-SELECT 
-    ms.schedule_id,
-    h.hotel_name,
-    r.room_number,
-    rt.type_name as room_type,
-    ms.maintenance_type,
-    ms.scheduled_date,
-    ms.completed_date,
-    DATEDIFF(CURDATE(), ms.scheduled_date) as days_overdue,
-    ms.priority,
-    ms.status,
-    CONCAT(s.first_name, ' ', s.last_name) as assigned_to_name,
-    ms.description
-FROM maintenance_schedule ms
-INNER JOIN rooms r ON ms.room_id = r.room_id
-INNER JOIN hotels h ON r.hotel_id = h.hotel_id
-INNER JOIN room_types rt ON r.type_id = rt.type_id
-LEFT JOIN staff s ON ms.assigned_to = s.staff_id
-WHERE ms.status != 'Completed'
-ORDER BY 
-    CASE ms.priority
-        WHEN 'Critical' THEN 1
-        WHEN 'High' THEN 2
-        WHEN 'Medium' THEN 3
-        WHEN 'Low' THEN 4
-    END,
-    ms.scheduled_date ASC;
-
--- =====================================================
+-- ============================================================================
 -- VIEW: vw_guest_loyalty_tiers
--- Guest loyalty statistics by tier
--- =====================================================
+-- Description: Guest loyalty statistics by membership tier
+-- Usage: SELECT * FROM vw_guest_loyalty_tiers;
+-- ============================================================================
 CREATE OR REPLACE VIEW `vw_guest_loyalty_tiers` AS
 SELECT 
     g.membership_level,
     COUNT(DISTINCT g.guest_id) as total_guests,
-    AVG(g.loyalty_points) as avg_loyalty_points,
+    ROUND(AVG(g.loyalty_points), 0) as avg_loyalty_points,
     COUNT(DISTINCT b.booking_id) as total_bookings,
     COALESCE(SUM(b.final_amount), 0) as total_revenue,
     COALESCE(AVG(b.final_amount), 0) as avg_booking_value,
@@ -228,3 +199,8 @@ ORDER BY
         WHEN 'Silver' THEN 3
         WHEN 'Bronze' THEN 4
     END;
+
+-- ============================================================================
+-- Success message
+-- ============================================================================
+SELECT 'Views created successfully! Run 06_indexes.sql next.' as Status;

@@ -1,11 +1,27 @@
--- =====================================================
+-- ============================================================================
 -- SMARTSTAY DATABASE SAMPLE DATA
--- Test data for development and demonstration
--- =====================================================
+-- ============================================================================
+-- File: 07_sample_data.sql
+-- Purpose: Test data for development and demonstration
+-- Run this file LAST after 06_indexes.sql
+--
+-- Test Credentials:
+--   Admin: username='admin', password='1234'
+--   Hotel: email='contact@grandplaza.com', password='1234'
+--   Guest: email='john.smith@email.com', password='1234'
+--
+-- Special Features:
+--   - Sample bookings distributed across multiple guests
+--   - Mix of confirmed and completed bookings
+--   - Payment status properly set (Paid for completed, mixed for pending)
+-- ============================================================================
 
 USE `smart_stay`;
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+
+
 
 -- =====================================================
 -- SAMPLE DATA: Room Types
@@ -73,21 +89,6 @@ INSERT IGNORE INTO `rooms` (`room_id`, `hotel_id`, `room_number`, `type_id`, `fl
 (8, 1, '402', 5, 4, 420.00, 750, 2),
 (9, 1, '501', 3, 5, 380.00, 700, 4),
 (10, 1, '502', 5, 5, 450.00, 800, 2);
-
--- =====================================================
--- SAMPLE DATA: Bookings (Mix of past, current, future)
--- =====================================================
-INSERT IGNORE INTO `bookings` (`booking_id`, `guest_id`, `room_id`, `check_in`, `check_out`, `total_amount`, `booking_status`, `special_requests`) VALUES
-(1, 1, 1, '2025-10-15', '2025-10-18', 450.00, 'Confirmed', 'Late check-in requested'),
-(2, 2, 3, '2025-10-20', '2025-10-25', 1750.00, 'Confirmed', 'Extra pillows please'),
-(3, 3, 11, '2025-09-01', '2025-09-05', 720.00, 'Completed', NULL),
-(4, 4, 21, '2025-10-10', '2025-10-12', 280.00, 'Confirmed', 'Early check-in if possible'),
-(5, 5, 2, '2025-11-01', '2025-11-05', 880.00, 'Confirmed', 'Non-smoking room'),
-(6, 7, 19, '2025-08-15', '2025-08-20', 2250.00, 'Completed', 'Anniversary celebration'),
-(7, 9, 13, '2025-10-25', '2025-10-30', 2000.00, 'Confirmed', 'Ocean view preferred'),
-(8, 1, 23, '2025-12-20', '2025-12-27', 2240.00, 'Confirmed', 'Holiday booking'),
-(9, 2, 8, '2025-10-05', '2025-10-08', 1260.00, 'Confirmed', NULL),
-(10, 10, 12, '2025-09-10', '2025-09-15', 1250.00, 'Completed', 'Honeymoon package');
 
 -- Hotel 2: Seaside Resort
 INSERT IGNORE INTO `rooms` (`room_id`, `hotel_id`, `room_number`, `type_id`, `floor_number`, `price`, `area_sqft`, `max_occupancy`) VALUES
@@ -193,6 +194,35 @@ INSERT IGNORE INTO `rooms` (`room_id`, `hotel_id`, `room_number`, `type_id`, `fl
 (89, 9, '501', 3, 5, 420.00, 710, 4),
 (90, 9, '502', 5, 5, 500.00, 820, 2);
 
+-- ============================================================================
+-- SAMPLE DATA: Bookings
+-- ============================================================================
+-- Current and future bookings only (no old data)
+--
+-- Booking Status Guide:
+--   - Completed: Past stays that have been finished
+--   - Confirmed: Upcoming or current bookings
+--   - Cancelled: Cancelled bookings
+--
+-- Payment Status:
+--   - Paid: Payment received
+--   - Pending: Awaiting payment
+-- ============================================================================
+
+INSERT IGNORE INTO `bookings` (`booking_id`, `guest_id`, `room_id`, `check_in`, `check_out`, `adults`, `children`, `total_amount`, `discount_amount`, `tax_amount`, `final_amount`, `booking_status`, `payment_status`, `special_requests`, `created_at`) VALUES
+
+-- CURRENT/FUTURE BOOKINGS (all with unique room/date combinations)
+(1, 1, 1, '2025-10-15', '2025-10-18', 2, 0, 450.00, 0.00, 81.00, 531.00, 'Confirmed', 'Paid', 'Late check-in requested', '2025-10-01 14:22:00'),
+(2, 1, 23, '2025-11-20', '2025-11-27', 2, 0, 2240.00, 0.00, 403.20, 2643.20, 'Confirmed', 'Paid', 'Holiday booking', '2025-11-15 10:30:00'),
+(3, 2, 3, '2025-10-20', '2025-10-25', 2, 0, 1750.00, 0.00, 315.00, 2065.00, 'Confirmed', 'Paid', 'Extra pillows please', '2025-10-02 11:15:00'),
+(4, 3, 12, '2025-09-01', '2025-09-05', 2, 0, 1000.00, 0.00, 180.00, 1180.00, 'Completed', 'Paid', NULL, '2025-08-28 09:00:00'),
+(5, 4, 21, '2025-10-10', '2025-10-12', 2, 0, 280.00, 0.00, 50.40, 330.40, 'Confirmed', 'Pending', 'Early check-in if possible', '2025-10-03 16:30:00'),
+(6, 5, 2, '2025-11-01', '2025-11-05', 2, 0, 880.00, 0.00, 158.40, 1038.40, 'Confirmed', 'Pending', 'Non-smoking room', '2025-10-28 14:00:00'),
+(7, 7, 19, '2025-08-15', '2025-08-20', 2, 0, 2250.00, 150.00, 378.00, 2478.00, 'Completed', 'Paid', 'Anniversary celebration', '2025-08-10 10:45:00'),
+(8, 9, 13, '2025-10-25', '2025-10-30', 2, 0, 2000.00, 0.00, 360.00, 2360.00, 'Confirmed', 'Paid', 'Ocean view preferred', '2025-10-04 13:20:00'),
+(9, 2, 8, '2025-12-05', '2025-12-08', 2, 0, 1260.00, 0.00, 226.80, 1486.80, 'Confirmed', 'Paid', NULL, '2025-12-01 11:00:00'),
+(10, 10, 14, '2025-09-10', '2025-09-15', 2, 0, 900.00, 50.00, 153.00, 1003.00, 'Completed', 'Paid', 'Honeymoon package', '2025-09-05 15:30:00');
+
 -- =====================================================
 -- SAMPLE DATA: Events (5 per hotel)
 -- =====================================================
@@ -261,25 +291,9 @@ INSERT IGNORE INTO `events` (`event_id`, `hotel_id`, `event_name`, `description`
 (44, 9, 'Jazz and Art Evening', 'Live music and art viewing', '2025-07-25', '19:00:00', '23:00:00', 'Rooftop Gallery', 100, 0, 110.00, 'Party', 'Upcoming'),
 (45, 9, 'Photography Workshop', 'Urban photography techniques', '2025-05-08', '10:00:00', '16:00:00', 'Studio Space', 25, 0, 260.00, 'Workshop', 'Upcoming');
 
--- =====================================================
--- SAMPLE DATA: Staff
--- =====================================================
-INSERT IGNORE INTO `staff` (`staff_id`, `hotel_id`, `first_name`, `last_name`, `email`, `phone`, `position`, `department`, `salary`, `hire_date`) VALUES
-(1, 1, 'Alice', 'Johnson', 'alice.j@grandplaza.com', '+1-212-555-1001', 'Front Desk Manager', 'Front Desk', 45000.00, '2020-01-15'),
-(2, 1, 'Bob', 'Smith', 'bob.s@grandplaza.com', '+1-212-555-1002', 'Housekeeping Supervisor', 'Housekeeping', 38000.00, '2019-03-20'),
-(3, 2, 'Carlos', 'Rodriguez', 'carlos.r@seasideresort.com', '+1-305-555-2001', 'Concierge', 'Front Desk', 42000.00, '2021-05-10'),
-(4, 2, 'Diana', 'Martinez', 'diana.m@seasideresort.com', '+1-305-555-2002', 'Head Chef', 'Restaurant', 65000.00, '2018-07-01'),
-(5, 3, 'Edward', 'Wilson', 'edward.w@mountainview.com', '+1-303-555-3001', 'Maintenance Manager', 'Maintenance', 50000.00, '2019-11-15'),
-(6, 4, 'Fiona', 'Chen', 'fiona.c@urbanboutique.com', '+1-213-555-4001', 'General Manager', 'Management', 85000.00, '2017-02-28'),
-(7, 5, 'George', 'Taylor', 'george.t@historicinn.com', '+1-617-555-5001', 'Guest Relations', 'Front Desk', 40000.00, '2020-09-05'),
-(8, 6, 'Hannah', 'Lee', 'hannah.l@citycenterexpress.com', '+1-312-555-6001', 'Receptionist', 'Front Desk', 35000.00, '2021-01-10'),
-(9, 7, 'Ian', 'Brown', 'ian.b@harborfront.com', '+1-206-555-7001', 'Hotel Manager', 'Management', 75000.00, '2018-06-15'),
-(10, 8, 'Julia', 'Anderson', 'julia.a@forestretreat.com', '+1-503-555-8001', 'Spa Director', 'Other', 55000.00, '2020-03-22'),
-(11, 9, 'Kevin', 'White', 'kevin.w@metroarthotel.com', '+1-415-555-9001', 'Event Coordinator', 'Other', 48000.00, '2019-08-18');
-
--- =====================================================
+-- ============================================================================
 -- SAMPLE DATA: Services
--- =====================================================
+-- ============================================================================
 INSERT IGNORE INTO `services` (`service_id`, `hotel_id`, `service_name`, `description`, `price`, `service_type`) VALUES
 (1, 1, 'Spa Treatment', 'Relaxing massage and treatments', 120.00, 'Spa'),
 (2, 1, 'Room Service', '24/7 in-room dining', 35.00, 'Room Service'),
@@ -331,3 +345,24 @@ INSERT IGNORE INTO `event_bookings` (`event_booking_id`, `event_id`, `guest_id`,
 (4, 5, 9, 2, 170.00, 'Confirmed');
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================================
+-- DATA SUMMARY
+-- ============================================================================
+-- Admins: 3
+-- Guests: 10
+-- Hotels: 9
+-- Room Types: 5
+-- Rooms: 90 (10 per hotel)
+-- Bookings: 10 (mix of confirmed and completed)
+-- Events: 45 (5 per hotel)
+-- Event Bookings: 4
+-- Services: 10
+-- Reviews: 14
+-- ============================================================================
+
+-- ============================================================================
+-- Success message
+-- ============================================================================
+SELECT 'Sample data loaded successfully! Database is ready to use.' as Status;
+SELECT 'Test Login - Admin: admin/1234, Guest: john.smith@email.com/1234' as Credentials;

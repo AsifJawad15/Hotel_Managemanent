@@ -5,7 +5,7 @@ $hid = (int)$_SESSION['hotel_id']; $events = $conn->query("SELECT * FROM events 
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="../../css/style.css"><title>Manage Events</title></head>
 <body>
-<div class="header"><div>Events</div><div class="nav"><a href="hotel_home.php">Dashboard</a> <a href="hotel_logout.php">Logout</a></div></div>
+<div class="header"><div>Events</div><div class="nav"><a href="hotel_home.php">Dashboard</a> <a href="hotel_services.php">Services</a> <a href="hotel_logout.php">Logout</a></div></div>
 <div class="main">
   <a class="btn btn-primary" href="hotel_add_event.php">+ Add Event</a>
   <table class="table">

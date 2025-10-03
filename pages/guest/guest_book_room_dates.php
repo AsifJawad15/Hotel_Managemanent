@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['check_in'], $_POST['che
           ) VALUES (
             $guest_id, $room_id, '$in', '$out', $adults, $children,
             $subtotal, $discount_amount, $tax_amount, $final_amount,
-            'Confirmed', 'Pending', '" . esc($special_requests) . "'
+            'Confirmed', 'Paid', '" . esc($special_requests) . "'
           )";
           
           if ($conn->query($booking_query)) {

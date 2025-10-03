@@ -5,10 +5,11 @@
 <div class="header">
   <div>Hotel: <?= htmlspecialchars($_SESSION['hotel_name']) ?></div>
   <div class="nav">
-    <a href="hotel_rooms.php">Rooms</a>
-    <a href="hotel_events.php">Events</a>
+  <a href="hotel_rooms.php">Rooms</a>
+  <a href="hotel_services.php">Services</a>
+  <a href="hotel_events.php">Events</a>
     <a href="hotel_logout.php">Logout</a>
   </div>
 </div>
-<div class="main"><h2>Welcome to your Hotel Dashboard</h2><p>Manage rooms and events.</p></div>
+<div class="main"><h2>Welcome to your Hotel Dashboard</h2><p>Use the navigation above to manage rooms, services, and events.</p></div>
 </body></html>

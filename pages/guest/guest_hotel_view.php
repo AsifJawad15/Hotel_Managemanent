@@ -30,6 +30,16 @@ if ($ids) {
   while ($b && $row = $b->fetch_assoc()) $bookings[(int)$row['room_id']] = (int)$row['guest_id'];
 }
 
+// Services
+$services = [];
+$servicesRes = $conn->query("SELECT service_name, description, price, service_type
+                             FROM services
+                             WHERE hotel_id=$hid
+                             ORDER BY service_type, service_name");
+while ($servicesRes && $row = $servicesRes->fetch_assoc()) {
+  $services[] = $row;
+}
+
 // Events
 $guest_id = (int)$_SESSION['guest_id'];
 $eventsRes = $conn->query("SELECT * FROM events WHERE hotel_id=$hid ORDER BY event_date");
@@ -95,6 +105,25 @@ while ($ebRes && $row = $ebRes->fetch_assoc()) {
       <?php endforeach; ?>
     </tbody>
   </table>
+
+  <h3 style="margin-top:24px;">Services</h3>
+  <?php if (!empty($services)): ?>
+    <table class="table">
+      <thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Price</th></tr></thead>
+      <tbody>
+        <?php foreach ($services as $s): ?>
+        <tr>
+          <td><?= htmlspecialchars($s['service_name']) ?></td>
+          <td><?= $s['service_type'] ? htmlspecialchars($s['service_type']) : 'General' ?></td>
+          <td><?= $s['description'] ? htmlspecialchars($s['description']) : '—' ?></td>
+          <td><?= ((float)$s['price']) > 0 ? '$' . number_format((float)$s['price'], 2) : 'Included' ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <p>No services have been published yet.</p>
+  <?php endif; ?>
 
   <h3 style="margin-top:24px;">Events</h3>
   <table class="table">

@@ -1,7 +1,11 @@
--- =====================================================
+-- ============================================================================
 -- SMARTSTAY DATABASE TRIGGERS
--- Automated actions for data integrity and business logic
--- =====================================================
+-- ============================================================================
+-- File: 04_triggers.sql
+-- Purpose: Automated actions for data integrity and business logic
+-- Run this file after 03_functions.sql
+-- Note: Requires system_logs table (created in 01_schema.sql)
+-- ============================================================================
 
 USE `smart_stay`;
 
@@ -159,23 +163,31 @@ BEGIN
     WHERE hotel_id = OLD.hotel_id;
 END$$
 
--- =====================================================
+-- ============================================================================
 -- TRIGGER: calculate_booking_amounts
--- Auto-calculate tax and final amount for bookings
--- =====================================================
+-- Description: Auto-calculate tax and final amount for new bookings
+-- Fires: BEFORE INSERT on bookings
+-- ============================================================================
 CREATE TRIGGER `calculate_booking_amounts` 
 BEFORE INSERT ON `bookings`
 FOR EACH ROW 
 BEGIN
-    DECLARE v_tax_rate DECIMAL(5,2) DEFAULT 0.18;
+    DECLARE v_tax_rate DECIMAL(5,2) DEFAULT 0.18;  -- 18% tax rate
     
+    -- Calculate tax if not provided
     IF NEW.tax_amount = 0 OR NEW.tax_amount IS NULL THEN
         SET NEW.tax_amount = ROUND(NEW.total_amount * v_tax_rate, 2);
     END IF;
     
+    -- Calculate final amount if not provided
     IF NEW.final_amount = 0 OR NEW.final_amount IS NULL THEN
         SET NEW.final_amount = ROUND(NEW.total_amount + NEW.tax_amount - NEW.discount_amount, 2);
     END IF;
 END$$
 
 DELIMITER ;
+
+-- ============================================================================
+-- Success message
+-- ============================================================================
+SELECT 'Triggers created successfully! Run 05_views.sql next.' as Status;
