@@ -22,50 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_prices'])) {
     $percentage = (float)$_POST['percentage'];
     
     try {
-        // Use stored procedure if available, otherwise direct update
-        $use_procedure = true;
+        $multiplier = 1 + ($percentage / 100);
         
-        if ($use_procedure) {
-            // Try using stored procedure first
-            $sql = "CALL UpdateRoomPrices(?, ?)";
+        if ($hotel_id) {
+            // Update specific hotel
+            $sql = "UPDATE rooms SET price = ROUND(price * ?, 2), updated_at = NOW() WHERE hotel_id = ? AND is_active = TRUE";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("id", $hotel_id, $percentage);
+            $stmt->bind_param("di", $multiplier, $hotel_id);
             
             if ($stmt->execute()) {
-                $result = $stmt->get_result();
-                $row = $result->fetch_assoc();
-                $affected_rows = $row['affected_rows'];
-                $stmt->close();
-                
-                if ($hotel_id) {
-                    // Get hotel name
-                    $hotel_query = "SELECT hotel_name FROM hotels WHERE hotel_id = ?";
-                    $hotel_stmt = $conn->prepare($hotel_query);
-                    $hotel_stmt->bind_param("i", $hotel_id);
-                    $hotel_stmt->execute();
-                    $hotel_result = $hotel_stmt->get_result();
-                    $hotel_name = $hotel_result->fetch_assoc()['hotel_name'];
-                    $hotel_stmt->close();
-                    
-                    $success_message = "✅ Successfully updated $affected_rows rooms in $hotel_name with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change.";
-                } else {
-                    $success_message = "✅ Successfully updated $affected_rows rooms across all hotels with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change.";
-                }
-            } else {
-                throw new Exception("Stored procedure failed");
-            }
-        }
-        
-    } catch (Exception $e) {
-        // Fallback to direct update if procedure fails
-        try {
-            $multiplier = 1 + ($percentage / 100);
-            
-            if ($hotel_id) {
-                $sql = "UPDATE rooms SET price = ROUND(price * ?, 2) WHERE hotel_id = ? AND is_active = TRUE";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("di", $multiplier, $hotel_id);
-                $stmt->execute();
                 $affected_rows = $stmt->affected_rows;
                 $stmt->close();
                 
@@ -78,21 +43,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_prices'])) {
                 $hotel_name = $hotel_result->fetch_assoc()['hotel_name'];
                 $hotel_stmt->close();
                 
-                $success_message = "✅ Updated $affected_rows rooms in $hotel_name with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change (fallback method).";
+                $success_message = "✅ Successfully updated $affected_rows rooms in $hotel_name with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change.";
             } else {
-                $sql = "UPDATE rooms SET price = ROUND(price * ?, 2) WHERE is_active = TRUE";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("d", $multiplier);
-                $stmt->execute();
+                throw new Exception($conn->error);
+            }
+        } else {
+            // Update all hotels
+            $sql = "UPDATE rooms SET price = ROUND(price * ?, 2), updated_at = NOW() WHERE is_active = TRUE";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("d", $multiplier);
+            
+            if ($stmt->execute()) {
                 $affected_rows = $stmt->affected_rows;
                 $stmt->close();
                 
-                $success_message = "✅ Updated $affected_rows rooms across all hotels with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change (fallback method).";
+                $success_message = "✅ Successfully updated $affected_rows rooms across all hotels with " . ($percentage >= 0 ? "+" : "") . "$percentage% price change.";
+            } else {
+                throw new Exception($conn->error);
             }
-            
-        } catch (Exception $e2) {
-            $error_message = "❌ Error updating prices: " . $e2->getMessage();
         }
+        
+    } catch (Exception $e) {
+        $error_message = "❌ Error updating prices: " . $e->getMessage();
     }
 }
 
@@ -106,7 +78,7 @@ while ($row = $hotels_result->fetch_assoc()) {
 
 // Get current room prices for preview
 $preview_query = "
-    SELECT h.hotel_name, r.room_number, rt.type_name, r.price, r.room_id
+    SELECT h.hotel_name, r.room_number, rt.type_name, r.price, r.room_id, r.updated_at
     FROM rooms r 
     JOIN hotels h ON r.hotel_id = h.hotel_id 
     JOIN room_types rt ON r.type_id = rt.type_id
@@ -252,8 +224,24 @@ while ($row = $preview_result->fetch_assoc()) {
                                             <td><?php echo htmlspecialchars($room['hotel_name']); ?></td>
                                             <td><?php echo htmlspecialchars($room['room_number']); ?></td>
                                             <td><?php echo htmlspecialchars($room['type_name']); ?></td>
-                                            <td>$<?php echo number_format($room['price'], 2); ?></td>
-                                            <td><span class="text-muted">Just updated</span></td>
+                                            <td><strong>$<?php echo number_format($room['price'], 2); ?></strong></td>
+                                            <td>
+                                                <?php 
+                                                if ($room['updated_at']) {
+                                                    $updated = new DateTime($room['updated_at']);
+                                                    $now = new DateTime();
+                                                    $diff = $now->diff($updated);
+                                                    
+                                                    if ($diff->days == 0 && $diff->h == 0 && $diff->i < 5) {
+                                                        echo '<span class="badge bg-success">Just updated</span>';
+                                                    } else {
+                                                        echo '<span class="text-muted">' . $updated->format('M d, Y g:i A') . '</span>';
+                                                    }
+                                                } else {
+                                                    echo '<span class="text-muted">Never updated</span>';
+                                                }
+                                                ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -302,6 +290,24 @@ while ($row = $preview_result->fetch_assoc()) {
             
             return confirm(message);
         }
+
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            });
+
+            // Scroll to table after update
+            <?php if (isset($success_message) && $success_message): ?>
+                setTimeout(function() {
+                    document.querySelector('.table-responsive').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+            <?php endif; ?>
+        });
     </script>
 </body>
 </html>
