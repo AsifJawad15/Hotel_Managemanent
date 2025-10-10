@@ -83,21 +83,21 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
     <div class="feature-card">
       <a href="admin_hotels.php">
         <h4>🏨 Hotel Management</h4>
-        <p>Add, Edit, Delete hotels | Manage services, staff, and hotel details</p>
+        <p>View, manage, and delete registered hotels</p>
       </a>
     </div>
     
     <div class="feature-card">
       <a href="admin_guests.php">
         <h4>👥 Guest Management</h4>
-        <p>Create, Edit, Delete guest accounts | View loyalty and booking history</p>
+        <p>Manage guest accounts and view loyalty status</p>
       </a>
     </div>
     
     <div class="feature-card">
       <a href="admin_events.php">
         <h4>🎉 Event Management</h4>
-        <p>Create, Edit, Delete events | Manage bookings and participants</p>
+        <p>Oversee all hotel events and bookings</p>
       </a>
     </div>
     
