@@ -1,0 +1,39 @@
+# Environment files - NEVER commit these!
+.env
+.env.local
+.env.*.local
+
+# API Keys and Secrets
+*_api_key.txt
+secrets.php
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Log files
+*.log
+logs/
+error_log
+
+# Temporary files
+tmp/
+temp/
+cache/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Database dumps (if sensitive)
+*.sql.gz
+backup_*.sql

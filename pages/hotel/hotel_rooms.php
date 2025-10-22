@@ -34,7 +34,7 @@ $rooms = $conn->query($query);
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="../../css/style.css"><title>Manage Rooms</title></head>
 <body>
-<div class="header"><div>Rooms</div><div class="nav"><a href="hotel_home.php">Dashboard</a> <a href="hotel_services.php">Services</a> <a href="hotel_logout.php">Logout</a></div></div>
+<div class="header"><div>Rooms</div><div class="nav"><a href="hotel_home.php">Dashboard</a> <a href="hotel_services.php">Services</a> <a href="hotel_events.php">Events</a> <a href="hotel_bookings.php">Bookings</a> <a href="hotel_logout.php">Logout</a></div></div>
 <div class="main">
   <a class="btn btn-primary" href="hotel_add_room.php">+ Add Room</a>
   <table class="table">

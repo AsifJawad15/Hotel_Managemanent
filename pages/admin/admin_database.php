@@ -179,7 +179,7 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
                         style="padding: 8px 14px; border: none; border-radius: 6px; background: #dc2626; color: white; cursor: pointer; font-size: 13px;">
                     Top Spending Guests
                 </button>
-                <button onclick="setCustomQuery(`SELECT h.hotel_name, AVG(r.rating) as avg_rating, COUNT(r.review_id) as total_reviews, CalculateGuestSatisfactionScore(h.hotel_id) as satisfaction_score FROM hotels h LEFT JOIN reviews r ON h.hotel_id = r.hotel_id AND r.is_approved = 1 GROUP BY h.hotel_id, h.hotel_name HAVING total_reviews > 0 ORDER BY satisfaction_score DESC;`)" 
+                <button onclick="setCustomQuery(`SELECT h.hotel_name, AVG(r.rating) as avg_rating, COUNT(r.review_id) as total_reviews FROM hotels h LEFT JOIN reviews r ON h.hotel_id = r.hotel_id AND r.is_approved = 1 GROUP BY h.hotel_id, h.hotel_name HAVING total_reviews > 0 ORDER BY avg_rating DESC;`)" 
                         style="padding: 8px 14px; border: none; border-radius: 6px; background: #ea580c; color: white; cursor: pointer; font-size: 13px;">
                     Hotel Ratings
                 </button>
@@ -328,56 +328,6 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
             }
             ?>
             <p style="font-size: 12px; color: #666; margin-top: 10px;"><strong>SQL:</strong> <code>SELECT CalculateDynamicPrice(<?= $_POST['base_price'] ?? '100' ?>, '<?= $_POST['price_date'] ?? date('Y-m-d', strtotime('+30 days')) ?>', '<?= $_POST['room_type'] ?? 'Standard' ?>');</code></p>
-        </div>
-
-        <!-- CalculateGuestSatisfactionScore Function -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-            <h4 style="color: #059669; margin-top: 0;">4. CalculateGuestSatisfactionScore Function</h4>
-            <p><strong>Purpose:</strong> Calculate satisfaction score based on reviews and response rate</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Select Hotel:</label>
-                        <select name="hotel_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
-                            <?php
-                            $hotels_query = "SELECT hotel_id, hotel_name FROM hotels ORDER BY hotel_name";
-                            $hotels_result = $conn->query($hotels_query);
-                            $selected_hotel = $_POST['hotel_id'] ?? '';
-                            while ($hotel = $hotels_result->fetch_assoc()) {
-                                $selected = ($hotel['hotel_id'] == $selected_hotel) ? 'selected' : '';
-                                echo "<option value='{$hotel['hotel_id']}' $selected>{$hotel['hotel_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <button type="submit" name="calc_satisfaction" class="btn btn-primary" style="padding: 8px 16px;">Calculate Score</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['calc_satisfaction']) && !empty($_POST['hotel_id'])) {
-                $hotel_id = intval($_POST['hotel_id']);
-                $satisfaction_query = "SELECT 
-                                        h.hotel_name,
-                                        COUNT(r.review_id) as total_reviews,
-                                        ROUND(AVG(r.rating), 2) as avg_rating,
-                                        CalculateGuestSatisfactionScore($hotel_id) as satisfaction_score
-                                    FROM hotels h
-                                    LEFT JOIN reviews r ON h.hotel_id = r.hotel_id AND r.is_approved = 1
-                                    WHERE h.hotel_id = $hotel_id
-                                    GROUP BY h.hotel_id, h.hotel_name";
-                
-                $satisfaction_result = $conn->query($satisfaction_query);
-                if ($satisfaction_result && $row = $satisfaction_result->fetch_assoc()) {
-                    echo "<div style='background: #dcfce7; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "<strong style='color: #059669;'>Result for {$row['hotel_name']}:</strong><br>";
-                    echo "Total Reviews: <strong>{$row['total_reviews']}</strong> | ";
-                    echo "Avg Rating: <strong>{$row['avg_rating']}/5.0</strong> | ";
-                    echo "Satisfaction Score: <strong style='color: #dc2626;'>{$row['satisfaction_score']}%</strong>";
-                    echo "</div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;"><strong>Formula:</strong> (Average Rating × 70%) + (Review Count × 20%) + (Response Rate × 10%)</p>
         </div>
     </div>
 

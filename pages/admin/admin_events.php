@@ -41,22 +41,31 @@ if (!$events) {
   </div>
 <?php else: ?>
 <table class="table">
-  <thead><tr><th>ID</th><th>Hotel</th><th>Event Name</th><th>Date</th><th>Price</th><th>Max Guests</th><th>Status</th><th>Actions</th></tr></thead>
+  <thead><tr><th>ID</th><th>Hotel</th><th>Event Name</th><th>Type</th><th>Date</th><th>Price</th><th>Participants</th><th>Status</th><th>Actions</th></tr></thead>
   <tbody>
     <?php while($e = $events->fetch_assoc()): ?>
     <tr>
       <td><?= $e['event_id'] ?></td>
       <td><?= htmlspecialchars($e['hotel_name']) ?></td>
       <td><strong><?= htmlspecialchars($e['event_name']) ?></strong></td>
+      <td><?= htmlspecialchars($e['event_type'] ?? 'Other') ?></td>
       <td><?= date('M d, Y', strtotime($e['event_date'])) ?></td>
       <td>$<?= number_format($e['price'], 2) ?></td>
-      <td><?= $e['max_guests'] ?></td>
+      <td><?= $e['current_participants'] ?> / <?= $e['max_participants'] ?></td>
       <td>
-        <?php if ($e['is_active']): ?>
-          <span style="padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 12px;">Active</span>
-        <?php else: ?>
-          <span style="padding: 4px 8px; background: #6b7280; color: white; border-radius: 4px; font-size: 12px;">Inactive</span>
-        <?php endif; ?>
+        <?php 
+        $status = $e['event_status'] ?? 'Upcoming';
+        $statusColors = [
+          'Upcoming' => '#3b82f6',
+          'Active' => '#10b981',
+          'Completed' => '#6b7280',
+          'Cancelled' => '#ef4444'
+        ];
+        $color = $statusColors[$status] ?? '#6b7280';
+        ?>
+        <span style="padding: 4px 8px; background: <?= $color ?>; color: white; border-radius: 4px; font-size: 12px;">
+          <?= htmlspecialchars($status) ?>
+        </span>
       </td>
       <td><a class="btn btn-danger" onclick="return confirmDelete();" href="admin_delete_event.php?id=<?= $e['event_id'] ?>&hotel_id=<?= $e['hotel_id'] ?>">Delete</a></td>
     </tr>

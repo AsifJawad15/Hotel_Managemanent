@@ -8,6 +8,7 @@
   <a href="hotel_rooms.php">Rooms</a>
   <a href="hotel_services.php">Services</a>
   <a href="hotel_events.php">Events</a>
+  <a href="hotel_bookings.php">Bookings</a>
     <a href="hotel_logout.php">Logout</a>
   </div>
 </div>

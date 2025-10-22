@@ -26,10 +26,11 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
 <div class="header">
   <div>Welcome, Admin - Hotel Management System</div>
   <div class="nav">
+    <a href="admin_home.php">Dashboard</a>
+    <a href="admin_ai_query.php" style="background: #f093fb; font-weight: bold;">🤖 AI Query</a>
     <a href="admin_hotels.php">Hotels</a>
     <a href="admin_guests.php">Guests</a>
     <a href="admin_events.php">Events</a>
-    <a href="admin_room_price_update.php">Pricing</a>
     <a href="admin_database.php">Database</a>
     <a href="admin_logout.php">Logout</a>
   </div>
@@ -73,6 +74,13 @@ $revenue = $conn->query("SELECT SUM(final_amount) as total FROM bookings WHERE b
   <!-- Management Features -->
   <h3>System Management</h3>
   <div class="feature-grid">
+    <div class="feature-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+      <a href="admin_ai_query.php">
+        <h4>🤖 AI Query Assistant</h4>
+        <p>Ask questions in plain English - Get instant SQL queries!</p>
+      </a>
+    </div>
+    
     <div class="feature-card">
       <a href="admin_database.php">
         <h4>💾 Database Interface</h4>

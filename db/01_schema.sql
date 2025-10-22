@@ -1,301 +1,235 @@
--- ============================================================================
--- SMARTSTAY DATABASE SCHEMA
--- ============================================================================
--- File: 01_schema.sql
--- Purpose: Create all database tables with proper structure and constraints
--- Run this file FIRST after creating the database
--- Note: Staff table removed (not used in application)
--- ============================================================================
-
 USE `smart_stay`;
 
--- ============================================================================
--- TABLE: room_types (must be created before rooms)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `room_types` (
-  `type_id` int(11) NOT NULL AUTO_INCREMENT,
-  `type_name` varchar(50) NOT NULL,
-  `description` text DEFAULT NULL,
-  `max_occupancy` int(11) DEFAULT 2,
-  `amenities` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`amenities`)),
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`type_id`),
-  UNIQUE KEY `type_name` (`type_name`),
-  FULLTEXT KEY `ft_room_type_search` (`type_name`,`description`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE room_types (
+  type_id INT AUTO_INCREMENT PRIMARY KEY,
+  type_name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  max_occupancy INT DEFAULT 2,
+  amenities LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin CHECK (json_valid(amenities)),
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  FULLTEXT KEY ft_room_type_search (type_name, description)
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: admins
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `admins` (
-  `admin_id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `full_name` varchar(100) DEFAULT NULL,
-  `role` enum('Super Admin','Admin','Manager') DEFAULT 'Admin',
-  `last_login` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `is_active` tinyint(1) DEFAULT 1,
-  PRIMARY KEY (`admin_id`),
-  UNIQUE KEY `username` (`username`),
-  KEY `idx_admin_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE admins (
+  admin_id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  email VARCHAR(100),
+  full_name VARCHAR(100),
+  role ENUM('Super Admin','Admin','Manager') DEFAULT 'Admin',
+  last_login TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  is_active TINYINT DEFAULT 1,
+  KEY idx_admin_email (email)
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: guests
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `guests` (
-  `guest_id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `date_of_birth` date DEFAULT NULL,
-  `gender` enum('Male','Female','Other') DEFAULT NULL,
-  `nationality` varchar(50) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `loyalty_points` int(11) DEFAULT 0,
-  `membership_level` enum('Bronze','Silver','Gold','Platinum') DEFAULT 'Bronze',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `is_active` tinyint(1) DEFAULT 1,
-  PRIMARY KEY (`guest_id`),
-  UNIQUE KEY `email` (`email`),
-  KEY `idx_guest_email` (`email`),
-  KEY `idx_membership_level` (`membership_level`),
-  KEY `idx_guest_membership_active` (`membership_level`,`is_active`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE guests (
+  guest_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  date_of_birth DATE,
+  gender ENUM('Male','Female','Other'),
+  nationality VARCHAR(50),
+  address TEXT,
+  loyalty_points INT DEFAULT 0,
+  membership_level ENUM('Bronze','Silver','Gold','Platinum') DEFAULT 'Bronze',
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  is_active TINYINT DEFAULT 1,
+  KEY idx_guest_email (email),
+  KEY idx_membership_level (membership_level),
+  KEY idx_guest_membership_active (membership_level,is_active)
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: hotels
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `hotels` (
-  `hotel_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_name` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `address` varchar(255) DEFAULT NULL,
-  `city` varchar(50) DEFAULT NULL,
-  `state` varchar(50) DEFAULT NULL,
-  `country` varchar(50) DEFAULT NULL,
-  `postal_code` varchar(20) DEFAULT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `star_rating` decimal(2,1) DEFAULT NULL,
-  `total_rooms` int(11) DEFAULT 0,
-  `amenities` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`amenities`)),
-  `check_in_time` time DEFAULT '14:00:00',
-  `check_out_time` time DEFAULT '11:00:00',
-  `established_year` int(11) DEFAULT NULL,
-  `license_number` varchar(50) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `is_active` tinyint(1) DEFAULT 1,
-  PRIMARY KEY (`hotel_id`),
-  UNIQUE KEY `email` (`email`),
-  KEY `idx_hotel_city` (`city`),
-  KEY `idx_star_rating` (`star_rating`),
-  FULLTEXT KEY `ft_hotel_search` (`hotel_name`,`description`,`city`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE hotels (
+  hotel_id INT AUTO_INCREMENT PRIMARY KEY,
+  hotel_name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  description TEXT,
+  address VARCHAR(255),
+  city VARCHAR(50),
+  state VARCHAR(50),
+  country VARCHAR(50),
+  postal_code VARCHAR(20),
+  phone VARCHAR(20),
+  star_rating DECIMAL(2,1),
+  total_rooms INT DEFAULT 0,
+  amenities LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin CHECK (json_valid(amenities)),
+  check_in_time TIME DEFAULT '14:00:00',
+  check_out_time TIME DEFAULT '11:00:00',
+  established_year INT,
+  license_number VARCHAR(50),
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  is_active TINYINT DEFAULT 1,
+  KEY idx_hotel_city (city),
+  KEY idx_star_rating (star_rating),
+  FULLTEXT KEY ft_hotel_search (hotel_name,description,city)
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: rooms
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `rooms` (
-  `room_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_id` int(11) NOT NULL,
-  `room_number` varchar(20) NOT NULL,
-  `type_id` int(11) NOT NULL,
-  `floor_number` int(11) DEFAULT NULL,
-  `price` decimal(10,2) NOT NULL,
-  `area_sqft` int(11) DEFAULT NULL,
-  `max_occupancy` int(11) DEFAULT 2,
-  `amenities` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`amenities`)),
-  `maintenance_status` enum('Available','Under Maintenance','Out of Service') DEFAULT 'Available',
-  `is_active` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`room_id`),
-  UNIQUE KEY `unique_room` (`hotel_id`,`room_number`),
-  KEY `idx_room_hotel` (`hotel_id`),
-  KEY `idx_room_type` (`type_id`),
-  KEY `idx_room_price` (`price`),
-  KEY `idx_room_hotel_status` (`hotel_id`,`maintenance_status`,`is_active`),
-  CONSTRAINT `fk_room_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_room_type` FOREIGN KEY (`type_id`) REFERENCES `room_types` (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE rooms (
+  room_id INT AUTO_INCREMENT PRIMARY KEY,
+  hotel_id INT NOT NULL,
+  room_number VARCHAR(20) NOT NULL,
+  type_id INT NOT NULL,
+  floor_number INT,
+  price DECIMAL(10,2) NOT NULL,
+  area_sqft INT,
+  max_occupancy INT DEFAULT 2,
+  amenities LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin CHECK (json_valid(amenities)),
+  maintenance_status ENUM('Available','Under Maintenance','Out of Service') DEFAULT 'Available',
+  is_active TINYINT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  UNIQUE KEY unique_room (hotel_id,room_number),
+  KEY idx_room_hotel (hotel_id),
+  KEY idx_room_type (type_id),
+  KEY idx_room_price (price),
+  KEY idx_room_hotel_status (hotel_id,maintenance_status,is_active),
+  CONSTRAINT fk_room_hotel FOREIGN KEY (hotel_id) REFERENCES hotels (hotel_id) ON DELETE CASCADE,
+  CONSTRAINT fk_room_type FOREIGN KEY (type_id) REFERENCES room_types (type_id)
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: bookings
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `bookings` (
-  `booking_id` int(11) NOT NULL AUTO_INCREMENT,
-  `guest_id` int(11) NOT NULL,
-  `room_id` int(11) NOT NULL,
-  `check_in` date NOT NULL,
-  `check_out` date NOT NULL,
-  `adults` int(11) DEFAULT 1,
-  `children` int(11) DEFAULT 0,
-  `total_amount` decimal(10,2) NOT NULL,
-  `discount_amount` decimal(10,2) DEFAULT 0.00,
-  `tax_amount` decimal(10,2) DEFAULT 0.00,
-  `final_amount` decimal(10,2) NOT NULL,
-  `booking_status` enum('Confirmed','Cancelled','Completed','No-Show') DEFAULT 'Confirmed',
-  `payment_status` enum('Pending','Paid','Partial','Refunded') DEFAULT 'Pending',
-  `booking_source` enum('Website','Phone','Walk-in','Third-party') DEFAULT 'Website',
-  `special_requests` text DEFAULT NULL,
-  `cancellation_reason` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`booking_id`),
-  KEY `idx_booking_guest` (`guest_id`),
-  KEY `idx_booking_room` (`room_id`),
-  KEY `idx_booking_dates` (`check_in`,`check_out`),
-  KEY `idx_booking_status` (`booking_status`),
-  KEY `idx_booking_date_status` (`check_in`,`check_out`,`booking_status`),
-  CONSTRAINT `fk_booking_guest` FOREIGN KEY (`guest_id`) REFERENCES `guests` (`guest_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_booking_room` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE bookings (
+  booking_id INT AUTO_INCREMENT PRIMARY KEY,
+  guest_id INT NOT NULL,
+  room_id INT NOT NULL,
+  check_in DATE NOT NULL,
+  check_out DATE NOT NULL,
+  adults INT DEFAULT 1,
+  children INT DEFAULT 0,
+  total_amount DECIMAL(10,2) NOT NULL,
+  discount_amount DECIMAL(10,2) DEFAULT 0.00,
+  tax_amount DECIMAL(10,2) DEFAULT 0.00,
+  final_amount DECIMAL(10,2) NOT NULL,
+  booking_status ENUM('Confirmed','Cancelled','Completed','No-Show') DEFAULT 'Confirmed',
+  payment_status ENUM('Pending','Paid','Partial','Refunded') DEFAULT 'Pending',
+  booking_source ENUM('Website','Phone','Walk-in','Third-party') DEFAULT 'Website',
+  special_requests TEXT,
+  cancellation_reason TEXT,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  KEY idx_booking_guest (guest_id),
+  KEY idx_booking_room (room_id),
+  KEY idx_booking_dates (check_in,check_out),
+  KEY idx_booking_status (booking_status),
+  KEY idx_booking_date_status (check_in,check_out,booking_status),
+  CONSTRAINT fk_booking_guest FOREIGN KEY (guest_id) REFERENCES guests (guest_id) ON DELETE CASCADE,
+  CONSTRAINT fk_booking_room FOREIGN KEY (room_id) REFERENCES rooms (room_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: events
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `events` (
-  `event_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_id` int(11) NOT NULL,
-  `event_name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `event_date` date NOT NULL,
-  `start_time` time DEFAULT NULL,
-  `end_time` time DEFAULT NULL,
-  `venue` varchar(100) DEFAULT NULL,
-  `max_participants` int(11) DEFAULT NULL,
-  `current_participants` int(11) DEFAULT 0,
-  `price` decimal(10,2) DEFAULT 0.00,
-  `event_type` enum('Conference','Wedding','Meeting','Party','Workshop','Other') DEFAULT 'Other',
-  `event_status` enum('Upcoming','Active','Completed','Cancelled') DEFAULT 'Upcoming',
-  `organizer_name` varchar(100) DEFAULT NULL,
-  `organizer_contact` varchar(100) DEFAULT NULL,
-  `requirements` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`event_id`),
-  KEY `idx_event_hotel` (`hotel_id`),
-  KEY `idx_event_date` (`event_date`),
-  KEY `idx_event_status` (`event_status`),
-  KEY `idx_event_date_status` (`event_date`,`event_status`,`hotel_id`),
-  FULLTEXT KEY `ft_event_search` (`event_name`,`description`,`venue`),
-  CONSTRAINT `fk_event_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE events (
+  event_id INT AUTO_INCREMENT PRIMARY KEY,
+  hotel_id INT NOT NULL,
+  event_name VARCHAR(100) NOT NULL,
+  description TEXT,
+  event_date DATE NOT NULL,
+  start_time TIME,
+  end_time TIME,
+  venue VARCHAR(100),
+  max_participants INT,
+  current_participants INT DEFAULT 0,
+  price DECIMAL(10,2) DEFAULT 0.00,
+  event_type ENUM('Conference','Wedding','Meeting','Party','Workshop','Other') DEFAULT 'Other',
+  event_status ENUM('Upcoming','Active','Completed','Cancelled') DEFAULT 'Upcoming',
+  organizer_name VARCHAR(100),
+  organizer_contact VARCHAR(100),
+  requirements TEXT,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  KEY idx_event_hotel (hotel_id),
+  KEY idx_event_date (event_date),
+  KEY idx_event_status (event_status),
+  KEY idx_event_date_status (event_date,event_status,hotel_id),
+  FULLTEXT KEY ft_event_search (event_name,description,venue),
+  CONSTRAINT fk_event_hotel FOREIGN KEY (hotel_id) REFERENCES hotels (hotel_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: event_bookings
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `event_bookings` (
-  `event_booking_id` int(11) NOT NULL AUTO_INCREMENT,
-  `event_id` int(11) NOT NULL,
-  `guest_id` int(11) NOT NULL,
-  `participants` int(11) DEFAULT 1,
-  `amount_paid` decimal(10,2) NOT NULL,
-  `booking_status` enum('Confirmed','Cancelled','Attended','No-Show') DEFAULT 'Confirmed',
-  `special_requirements` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`event_booking_id`),
-  UNIQUE KEY `unique_event_guest` (`event_id`,`guest_id`),
-  KEY `idx_event_booking_guest` (`guest_id`),
-  CONSTRAINT `fk_event_booking_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_event_booking_guest` FOREIGN KEY (`guest_id`) REFERENCES `guests` (`guest_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE event_bookings (
+  event_booking_id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  guest_id INT NOT NULL,
+  participants INT DEFAULT 1,
+  amount_paid DECIMAL(10,2) NOT NULL,
+  booking_status ENUM('Confirmed','Cancelled','Attended','No-Show') DEFAULT 'Confirmed',
+  special_requirements TEXT,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  UNIQUE KEY unique_event_guest (event_id,guest_id),
+  KEY idx_event_booking_guest (guest_id),
+  CONSTRAINT fk_event_booking_event FOREIGN KEY (event_id) REFERENCES events (event_id) ON DELETE CASCADE,
+  CONSTRAINT fk_event_booking_guest FOREIGN KEY (guest_id) REFERENCES guests (guest_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: reviews
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `reviews` (
-  `review_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_id` int(11) NOT NULL,
-  `guest_id` int(11) NOT NULL,
-  `booking_id` int(11) DEFAULT NULL,
-  `rating` decimal(2,1) NOT NULL,
-  `title` varchar(200) DEFAULT NULL,
-  `comment` text DEFAULT NULL,
-  `service_rating` decimal(2,1) DEFAULT NULL,
-  `cleanliness_rating` decimal(2,1) DEFAULT NULL,
-  `location_rating` decimal(2,1) DEFAULT NULL,
-  `amenities_rating` decimal(2,1) DEFAULT NULL,
-  `is_approved` tinyint(1) DEFAULT 0,
-  `admin_response` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`review_id`),
-  KEY `idx_review_hotel` (`hotel_id`),
-  KEY `idx_review_guest` (`guest_id`),
-  KEY `idx_review_booking` (`booking_id`),
-  KEY `idx_review_hotel_approved` (`hotel_id`,`is_approved`,`created_at`),
-  CONSTRAINT `fk_review_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_review_guest` FOREIGN KEY (`guest_id`) REFERENCES `guests` (`guest_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_review_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE reviews (
+  review_id INT AUTO_INCREMENT PRIMARY KEY,
+  hotel_id INT NOT NULL,
+  guest_id INT NOT NULL,
+  booking_id INT,
+  rating DECIMAL(2,1) NOT NULL,
+  title VARCHAR(200),
+  comment TEXT,
+  service_rating DECIMAL(2,1),
+  cleanliness_rating DECIMAL(2,1),
+  location_rating DECIMAL(2,1),
+  amenities_rating DECIMAL(2,1),
+  is_approved TINYINT DEFAULT 0,
+  admin_response TEXT,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  KEY idx_review_hotel (hotel_id),
+  KEY idx_review_guest (guest_id),
+  KEY idx_review_booking (booking_id),
+  KEY idx_review_hotel_approved (hotel_id,is_approved,created_at),
+  CONSTRAINT fk_review_hotel FOREIGN KEY (hotel_id) REFERENCES hotels (hotel_id) ON DELETE CASCADE,
+  CONSTRAINT fk_review_guest FOREIGN KEY (guest_id) REFERENCES guests (guest_id) ON DELETE CASCADE,
+  CONSTRAINT fk_review_booking FOREIGN KEY (booking_id) REFERENCES bookings (booking_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: payments
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `payments` (
-  `payment_id` int(11) NOT NULL AUTO_INCREMENT,
-  `booking_id` int(11) NOT NULL,
-  `payment_method` enum('Cash','Card','Online','Bank Transfer') NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `transaction_id` varchar(100) DEFAULT NULL,
-  `payment_status` enum('Success','Failed','Pending','Refunded') DEFAULT 'Pending',
-  `payment_date` timestamp NOT NULL DEFAULT current_timestamp(),
-  `gateway_response` text DEFAULT NULL,
-  PRIMARY KEY (`payment_id`),
-  KEY `idx_payment_booking` (`booking_id`),
-  KEY `idx_payment_status` (`payment_status`),
-  KEY `idx_payment_date_status` (`payment_date`,`payment_status`),
-  CONSTRAINT `fk_payment_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE payments (
+  payment_id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NOT NULL,
+  payment_method ENUM('Cash','Card','Online','Bank Transfer') NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  transaction_id VARCHAR(100),
+  payment_status ENUM('Success','Failed','Pending','Refunded') DEFAULT 'Pending',
+  payment_date TIMESTAMP DEFAULT current_timestamp(),
+  gateway_response TEXT,
+  KEY idx_payment_booking (booking_id),
+  KEY idx_payment_status (payment_status),
+  KEY idx_payment_date_status (payment_date,payment_status),
+  CONSTRAINT fk_payment_booking FOREIGN KEY (booking_id) REFERENCES bookings (booking_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: services
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `services` (
-  `service_id` int(11) NOT NULL AUTO_INCREMENT,
-  `hotel_id` int(11) NOT NULL,
-  `service_name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `price` decimal(10,2) NOT NULL,
-  `service_type` enum('Spa','Restaurant','Room Service','Transport','Laundry','Other') DEFAULT 'Other',
-  `is_active` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`service_id`),
-  KEY `idx_service_hotel` (`hotel_id`),
-  FULLTEXT KEY `ft_service_search` (`service_name`,`description`),
-  CONSTRAINT `fk_service_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`hotel_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE services (
+  service_id INT AUTO_INCREMENT PRIMARY KEY,
+  hotel_id INT NOT NULL,
+  service_name VARCHAR(100) NOT NULL,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  service_type ENUM('Spa','Restaurant','Room Service','Transport','Laundry','Other') DEFAULT 'Other',
+  is_active TINYINT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  updated_at TIMESTAMP DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  KEY idx_service_hotel (hotel_id),
+  FULLTEXT KEY ft_service_search (service_name,description),
+  CONSTRAINT fk_service_hotel FOREIGN KEY (hotel_id) REFERENCES hotels (hotel_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ============================================================================
--- TABLE: system_logs (for triggers)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS `system_logs` (
-  `log_id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_type` enum('Guest','Hotel','Admin','System') DEFAULT 'System',
-  `user_id` int(11) DEFAULT NULL,
-  `action` varchar(50) NOT NULL,
-  `table_name` varchar(50) NOT NULL,
-  `record_id` int(11) DEFAULT NULL,
-  `old_values` json DEFAULT NULL,
-  `new_values` json DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`log_id`),
-  KEY `idx_action` (`action`),
-  KEY `idx_table` (`table_name`),
-  KEY `idx_created` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- ============================================================================
--- Success message
--- ============================================================================
-SELECT 'Schema created successfully! Run 02_procedures.sql next.' as Status;
+CREATE TABLE system_logs (
+  log_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_type ENUM('Guest','Hotel','Admin','System') DEFAULT 'System',
+  user_id INT,
+  action VARCHAR(50) NOT NULL,
+  table_name VARCHAR(50) NOT NULL,
+  record_id INT,
+  old_values JSON,
+  new_values JSON,
+  created_at TIMESTAMP DEFAULT current_timestamp(),
+  KEY idx_action (action),
+  KEY idx_table (table_name),
+  KEY idx_created (created_at)
+) ENGINE=InnoDB;

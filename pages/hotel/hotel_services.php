@@ -18,6 +18,9 @@ $services = $conn->query("SELECT * FROM services WHERE hotel_id=$hid ORDER BY se
   <div>Services</div>
   <div class="nav">
     <a href="hotel_home.php">Dashboard</a>
+    <a href="hotel_rooms.php">Rooms</a>
+    <a href="hotel_events.php">Events</a>
+    <a href="hotel_bookings.php">Bookings</a>
     <a href="hotel_logout.php">Logout</a>
   </div>
 </div>
