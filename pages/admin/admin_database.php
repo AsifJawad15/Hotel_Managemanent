@@ -43,6 +43,65 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
             border-radius: 8px;
             border: 1px solid #e2e8f0;
         }
+        .category-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .category-header {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .category-ddl { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .category-dml { border-bottom-color: #059669; color: #059669; }
+        .category-subquery { border-bottom-color: #dc2626; color: #dc2626; }
+        .category-set { border-bottom-color: #7c3aed; color: #7c3aed; }
+        .category-view { border-bottom-color: #ea580c; color: #ea580c; }
+        .category-join { border-bottom-color: #0891b2; color: #0891b2; }
+        
+        .query-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .query-button {
+            padding: 12px 16px;
+            border: 2px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: left;
+            background: white;
+        }
+        .query-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .btn-ddl { border-color: #3b82f6; color: #3b82f6; }
+        .btn-ddl:hover { background: #3b82f6; color: white; }
+        .btn-dml { border-color: #059669; color: #059669; }
+        .btn-dml:hover { background: #059669; color: white; }
+        .btn-subquery { border-color: #dc2626; color: #dc2626; }
+        .btn-subquery:hover { background: #dc2626; color: white; }
+        .btn-set { border-color: #7c3aed; color: #7c3aed; }
+        .btn-set:hover { background: #7c3aed; color: white; }
+        .btn-view { border-color: #ea580c; color: #ea580c; }
+        .btn-view:hover { background: #ea580c; color: white; }
+        .btn-join { border-color: #0891b2; color: #0891b2; }
+        .btn-join:hover { background: #0891b2; color: white; }
+        
         textarea {
             font-family: 'Courier New', monospace;
             background: #1e293b;
@@ -51,12 +110,15 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
             padding: 15px;
             width: 100%;
             border-radius: 6px;
+            min-height: 150px;
         }
         .result-table {
             margin: 20px 0;
             overflow-x: auto;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
+            max-height: 500px;
+            overflow-y: auto;
         }
         .result-table table {
             margin: 0;
@@ -84,6 +146,17 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
             margin-bottom: 5px;
             font-weight: bold;
         }
+        .query-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .query-desc {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .icon {
+            font-size: 24px;
+        }
     </style>
 </head>
 <body>
@@ -96,8 +169,8 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
 </div>
 
 <div class="main">
-    <h2>Advanced Database Operations</h2>
-    <p>Execute custom SQL queries to analyze and manage your database.</p>
+    <h2>🗄️ Advanced Database Query Interface</h2>
+    <p style="color: #64748b; margin-bottom: 30px;">Explore comprehensive SQL operations organized by category: DDL, DML, Subqueries, Set Operations, Views, and Joins</p>
 
     <!-- Results Display -->
     <?php if ($result_message): ?>
@@ -135,566 +208,670 @@ if (isset($_POST['execute_query']) && !empty($_POST['sql_query'])) {
         </div>
     <?php endif; ?>
 
-    <!-- Custom SQL Section -->
+    <!-- Query Builder Section -->
     <div class="query-section">
-        <h3>Custom SQL Query</h3>
+        <h3>🔍 Query Builder</h3>
+        <p style="color: #64748b; margin-bottom: 20px;">Select a query category, choose a specific query, review it, then execute to see results.</p>
         
-        <form method="post">
+        <form method="post" id="query-form">
+            <!-- Step 1: Select Query Type -->
             <div class="form-group">
-                <label>SQL Query</label>
-                <textarea id="custom-sql-query" name="sql_query" rows="10" placeholder="Enter your SQL query here or click a predefined query below..."><?= htmlspecialchars($_POST['sql_query'] ?? '') ?></textarea>
+                <label style="font-size: 16px; color: #1e293b;">📂 Step 1: Select Query Type</label>
+                <select id="query-type" name="query_type" onchange="updateQueryList()" 
+                        style="width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 15px; background: white;">
+                    <option value="">-- Select a Query Type --</option>
+                    <option value="ddl" <?= ($_POST['query_type'] ?? '') == 'ddl' ? 'selected' : '' ?>>🏗️ DDL - Data Definition Language</option>
+                    <option value="dml" <?= ($_POST['query_type'] ?? '') == 'dml' ? 'selected' : '' ?>>✏️ DML - Data Manipulation Language</option>
+                    <option value="join" <?= ($_POST['query_type'] ?? '') == 'join' ? 'selected' : '' ?>>🔗 Joins - Combining Tables</option>
+                    <option value="subquery" <?= ($_POST['query_type'] ?? '') == 'subquery' ? 'selected' : '' ?>>🔍 Subqueries - Nested Queries</option>
+                    <option value="aggregate" <?= ($_POST['query_type'] ?? '') == 'aggregate' ? 'selected' : '' ?>>📊 Aggregate Functions - Analytics</option>
+                    <option value="view" <?= ($_POST['query_type'] ?? '') == 'view' ? 'selected' : '' ?>>👁️ Views - Predefined Reports</option>
+                </select>
             </div>
-            <button type="submit" name="execute_query" class="btn btn-primary">Execute Query</button>
-        </form>
 
-        <!-- Predefined Query Buttons -->
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-            <h4 style="color: #475569; margin-bottom: 15px;">Quick Query Templates</h4>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button onclick="setCustomQuery('SELECT * FROM hotels ORDER BY hotel_name LIMIT 10;')" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #3b82f6; color: white; cursor: pointer; font-size: 13px;">
-                    View Hotels
+            <!-- Step 2: Select Specific Query -->
+            <div class="form-group" id="query-list-container" style="display: none;">
+                <label style="font-size: 16px; color: #1e293b;">📋 Step 2: Select Specific Query</label>
+                <select id="query-list" name="query_name" onchange="loadQuery()" 
+                        style="width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 15px; background: white;">
+                    <option value="">-- Select a Query --</option>
+                </select>
+            </div>
+
+            <!-- Hidden SQL Query Field (not shown to user) -->
+            <input type="hidden" id="custom-sql-query" name="sql_query">
+            
+            <!-- Query Description (shows what the query does) -->
+            <div id="query-description" style="display: none; margin-top: 15px; padding: 12px; background: #f0f9ff; border-left: 4px solid #0ea5e9; border-radius: 4px; font-size: 14px; color: #0c4a6e;"></div>
+
+            <!-- Execute Button -->
+            <div id="execute-button-container" style="display: none; margin-top: 20px;">
+                <button type="submit" name="execute_query" class="btn btn-primary" 
+                        style="padding: 14px 32px; font-size: 17px; font-weight: bold; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); border: none; border-radius: 8px; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s;">
+                    ▶️ Execute Query & Show Results
                 </button>
-                <button onclick="setCustomQuery('SELECT * FROM guests ORDER BY created_at DESC LIMIT 10;')" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #3b82f6; color: white; cursor: pointer; font-size: 13px;">
-                    Recent Guests
-                </button>
-                <button onclick="setCustomQuery('SELECT b.booking_id, g.name as guest_name, h.hotel_name, r.room_number, b.check_in, b.check_out, b.booking_status, b.final_amount FROM bookings b JOIN guests g ON b.guest_id = g.guest_id JOIN rooms r ON b.room_id = r.room_id JOIN hotels h ON r.hotel_id = h.hotel_id ORDER BY b.created_at DESC LIMIT 10;')" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #3b82f6; color: white; cursor: pointer; font-size: 13px;">
-                    Recent Bookings
-                </button>
-                <button onclick="setCustomQuery(`SELECT h.hotel_name, SUM(b.final_amount) as total_revenue, COUNT(b.booking_id) as total_bookings, AVG(b.final_amount) as avg_booking_value FROM hotels h LEFT JOIN rooms r ON h.hotel_id = r.hotel_id LEFT JOIN bookings b ON r.room_id = b.room_id AND b.booking_status = 'Completed' GROUP BY h.hotel_id, h.hotel_name ORDER BY total_revenue DESC;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #059669; color: white; cursor: pointer; font-size: 13px;">
-                    Revenue by Hotel
-                </button>
-                <button onclick="setCustomQuery(`SELECT YEAR(b.check_in) as year, MONTH(b.check_in) as month, SUM(b.final_amount) as monthly_revenue, COUNT(b.booking_id) as monthly_bookings FROM bookings b WHERE b.booking_status = 'Completed' GROUP BY YEAR(b.check_in), MONTH(b.check_in) ORDER BY year DESC, month DESC LIMIT 12;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #059669; color: white; cursor: pointer; font-size: 13px;">
-                    Monthly Revenue
-                </button>
-                <button onclick="setCustomQuery(`SELECT h.hotel_name, rt.type_name, COUNT(r.room_id) as total_rooms, AVG(r.price) as avg_price FROM hotels h JOIN rooms r ON h.hotel_id = r.hotel_id JOIN room_types rt ON r.type_id = rt.type_id GROUP BY h.hotel_id, h.hotel_name, rt.type_id, rt.type_name ORDER BY h.hotel_name, rt.type_name;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #7c3aed; color: white; cursor: pointer; font-size: 13px;">
-                    Rooms by Type
-                </button>
-                <button onclick="setCustomQuery(`SELECT g.name, g.membership_level, SUM(b.final_amount) as total_spent, COUNT(b.booking_id) as total_bookings FROM guests g JOIN bookings b ON g.guest_id = b.guest_id WHERE b.booking_status = 'Completed' GROUP BY g.guest_id, g.name, g.membership_level ORDER BY total_spent DESC LIMIT 10;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #dc2626; color: white; cursor: pointer; font-size: 13px;">
-                    Top Spending Guests
-                </button>
-                <button onclick="setCustomQuery(`SELECT h.hotel_name, AVG(r.rating) as avg_rating, COUNT(r.review_id) as total_reviews FROM hotels h LEFT JOIN reviews r ON h.hotel_id = r.hotel_id AND r.is_approved = 1 GROUP BY h.hotel_id, h.hotel_name HAVING total_reviews > 0 ORDER BY avg_rating DESC;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #ea580c; color: white; cursor: pointer; font-size: 13px;">
-                    Hotel Ratings
-                </button>
-                <button onclick="setCustomQuery(`SELECT e.event_name, h.hotel_name, e.event_date, e.start_time, e.end_time, e.max_participants, e.current_participants, e.price, e.event_status FROM events e JOIN hotels h ON e.hotel_id = h.hotel_id WHERE e.event_status = 'Upcoming' ORDER BY e.event_date ASC LIMIT 10;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #0891b2; color: white; cursor: pointer; font-size: 13px;">
-                    Upcoming Events
-                </button>
-                <button onclick="setCustomQuery(`SELECT GetSeason(CURDATE()) as current_season, GetSeason('2025-12-25') as christmas_season, GetSeason('2025-07-15') as summer_season;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #65a30d; color: white; cursor: pointer; font-size: 13px;">
-                    Season Check
-                </button>
-                <button onclick="setCustomQuery(`SELECT r.room_id, h.hotel_name, r.room_number, rt.type_name, r.price as base_price, CalculateDynamicPrice(r.price, '2025-12-25', rt.type_name) as christmas_price, CalculateDynamicPrice(r.price, '2025-07-15', rt.type_name) as summer_price FROM rooms r JOIN hotels h ON r.hotel_id = h.hotel_id JOIN room_types rt ON r.type_id = rt.type_id LIMIT 10;`)" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #db2777; color: white; cursor: pointer; font-size: 13px;">
-                    Dynamic Pricing
-                </button>
-                <button onclick="setCustomQuery('SELECT guest_id, name, date_of_birth, CalculateAge(date_of_birth) as age FROM guests WHERE date_of_birth IS NOT NULL ORDER BY age DESC LIMIT 10;')" 
-                        style="padding: 8px 14px; border: none; border-radius: 6px; background: #4f46e5; color: white; cursor: pointer; font-size: 13px;">
-                    Guest Ages
+                <button type="button" onclick="resetForm()" 
+                        style="padding: 14px 32px; font-size: 17px; margin-left: 10px; background: #f1f5f9; border: 2px solid #cbd5e1; border-radius: 8px; color: #475569; cursor: pointer;">
+                    🔄 Reset
                 </button>
             </div>
-        </div>
+        </form>
     </div>
 
     <script>
-    function setCustomQuery(query) {
-        document.getElementById('custom-sql-query').value = query;
-        // Scroll to the textarea
-        document.getElementById('custom-sql-query').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Focus on the textarea
-        document.getElementById('custom-sql-query').focus();
+    // Query database organized by category
+    const queries = {
+        ddl: [
+            {
+                name: 'Show All Tables',
+                sql: 'SHOW TABLES;',
+                description: 'Display all tables in the smart_stay database'
+            },
+            {
+                name: 'Describe Hotels Table',
+                sql: 'DESCRIBE hotels;',
+                description: 'Show structure and columns of hotels table'
+            },
+            {
+                name: 'Describe Bookings Table',
+                sql: 'DESCRIBE bookings;',
+                description: 'Show structure and columns of bookings table'
+            },
+            {
+                name: 'Describe Rooms Table',
+                sql: 'DESCRIBE rooms;',
+                description: 'Show structure and columns of rooms table'
+            },
+            {
+                name: 'Describe Guests Table',
+                sql: 'DESCRIBE guests;',
+                description: 'Show structure and columns of guests table'
+            },
+            {
+                name: 'Show Indexes on Bookings',
+                sql: 'SHOW INDEX FROM bookings;',
+                description: 'View all indexes on bookings table for query optimization'
+            },
+            {
+                name: 'Table Statistics',
+                sql: `SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, 
+       ROUND(DATA_LENGTH/1024/1024, 2) as 'Size_MB',
+       ROUND(INDEX_LENGTH/1024/1024, 2) as 'Index_MB'
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = 'smart_stay' 
+ORDER BY DATA_LENGTH DESC;`,
+                description: 'Size, row count, and storage statistics for all tables'
+            },
+            {
+                name: 'Foreign Key Relationships',
+                sql: `SELECT 
+    TABLE_NAME as 'Table', 
+    COLUMN_NAME as 'Column', 
+    CONSTRAINT_NAME as 'Constraint',
+    REFERENCED_TABLE_NAME as 'References_Table', 
+    REFERENCED_COLUMN_NAME as 'References_Column'
+FROM information_schema.KEY_COLUMN_USAGE 
+WHERE TABLE_SCHEMA = 'smart_stay' 
+  AND REFERENCED_TABLE_NAME IS NOT NULL
+ORDER BY TABLE_NAME;`,
+                description: 'Show all foreign key relationships between tables'
+            }
+        ],
+        dml: [
+            {
+                name: 'All Active Hotels',
+                sql: 'SELECT * FROM hotels WHERE is_active = 1 ORDER BY star_rating DESC, hotel_name LIMIT 20;',
+                description: 'Retrieve all active hotels ordered by star rating'
+            },
+            {
+                name: 'Recent Guests',
+                sql: 'SELECT guest_id, name, email, phone, membership_level, loyalty_points, created_at FROM guests ORDER BY created_at DESC LIMIT 20;',
+                description: 'Latest registered guests in the system'
+            },
+            {
+                name: 'Confirmed Bookings',
+                sql: `SELECT booking_id, guest_id, room_id, check_in, check_out, 
+       booking_status, payment_status, final_amount 
+FROM bookings 
+WHERE booking_status = 'Confirmed' 
+ORDER BY check_in DESC LIMIT 20;`,
+                description: 'All confirmed bookings with payment status'
+            },
+            {
+                name: 'Available Rooms Today',
+                sql: `SELECT r.room_id, h.hotel_name, r.room_number, rt.type_name, 
+       r.price, r.max_occupancy, r.maintenance_status
+FROM rooms r
+JOIN hotels h ON r.hotel_id = h.hotel_id
+JOIN room_types rt ON r.type_id = rt.type_id
+WHERE r.is_active = 1 
+  AND r.room_id NOT IN (
+      SELECT room_id FROM bookings 
+      WHERE booking_status = 'Confirmed'
+      AND CURDATE() BETWEEN check_in AND check_out
+  )
+ORDER BY h.hotel_name, r.room_number
+LIMIT 30;`,
+                description: 'Rooms available for booking today'
+            },
+            {
+                name: 'Upcoming Events',
+                sql: `SELECT e.event_id, h.hotel_name, e.event_name, e.event_date, 
+       e.start_time, e.max_participants, e.current_participants, 
+       e.price, e.event_status
+FROM events e
+JOIN hotels h ON e.hotel_id = h.hotel_id
+WHERE e.event_status = 'Upcoming' 
+  AND e.event_date >= CURDATE()
+ORDER BY e.event_date 
+LIMIT 20;`,
+                description: 'Future events scheduled at hotels'
+            },
+            {
+                name: 'High-Rated Reviews',
+                sql: `SELECT r.review_id, g.name as guest_name, h.hotel_name, 
+       r.rating, r.comment, r.created_at
+FROM reviews r
+JOIN guests g ON r.guest_id = g.guest_id
+JOIN hotels h ON r.hotel_id = h.hotel_id
+WHERE r.is_approved = 1 AND r.rating >= 4
+ORDER BY r.created_at DESC 
+LIMIT 20;`,
+                description: 'Approved reviews with ratings 4 stars and above'
+            },
+            {
+                name: 'Recent Payments',
+                sql: `SELECT payment_id, booking_id, payment_method, amount, 
+       payment_status, payment_date, transaction_id
+FROM payments 
+WHERE payment_status = 'Completed'
+  AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+ORDER BY payment_date DESC 
+LIMIT 25;`,
+                description: 'Completed payments in the last 30 days'
+            },
+            {
+                name: 'Premium Members',
+                sql: `SELECT guest_id, name, email, membership_level, loyalty_points, 
+       date_of_birth, created_at
+FROM guests 
+WHERE membership_level IN ('Gold', 'Platinum')
+ORDER BY loyalty_points DESC 
+LIMIT 25;`,
+                description: 'Gold and Platinum tier members with highest loyalty points'
+            }
+        ],
+        join: [
+            {
+                name: 'Complete Booking Details',
+                sql: `SELECT 
+    b.booking_id,
+    g.name as guest_name,
+    g.email,
+    g.phone,
+    h.hotel_name,
+    h.city,
+    r.room_number,
+    rt.type_name as room_type,
+    b.check_in,
+    b.check_out,
+    DATEDIFF(b.check_out, b.check_in) as nights,
+    b.adults,
+    b.children,
+    b.final_amount,
+    b.booking_status,
+    b.payment_status
+FROM bookings b
+INNER JOIN guests g ON b.guest_id = g.guest_id
+INNER JOIN rooms r ON b.room_id = r.room_id
+INNER JOIN hotels h ON r.hotel_id = h.hotel_id
+INNER JOIN room_types rt ON r.type_id = rt.type_id
+WHERE b.check_in >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+ORDER BY b.created_at DESC
+LIMIT 25;`,
+                description: '4-way INNER JOIN showing complete booking information with guest, room, and hotel details'
+            },
+            {
+                name: 'Hotel Performance Report',
+                sql: `SELECT 
+    h.hotel_name,
+    h.city,
+    h.star_rating,
+    COUNT(DISTINCT r.room_id) as total_rooms,
+    COUNT(DISTINCT b.booking_id) as total_bookings,
+    COUNT(DISTINCT CASE WHEN b.booking_status = 'Completed' THEN b.booking_id END) as completed_bookings,
+    ROUND(SUM(CASE WHEN b.payment_status = 'Paid' THEN b.final_amount ELSE 0 END), 2) as total_revenue,
+    ROUND(AVG(CASE WHEN b.payment_status = 'Paid' THEN b.final_amount END), 2) as avg_booking_value
+FROM hotels h
+LEFT JOIN rooms r ON h.hotel_id = r.hotel_id
+LEFT JOIN bookings b ON r.room_id = b.room_id
+WHERE h.is_active = 1
+GROUP BY h.hotel_id, h.hotel_name, h.city, h.star_rating
+ORDER BY total_revenue DESC;`,
+                description: 'LEFT JOIN with GROUP BY showing hotel statistics and revenue'
+            },
+            {
+                name: 'Guest Booking Summary',
+                sql: `SELECT 
+    g.name as guest_name,
+    g.email,
+    g.membership_level,
+    g.loyalty_points,
+    COUNT(b.booking_id) as total_bookings,
+    ROUND(SUM(CASE WHEN b.payment_status = 'Paid' THEN b.final_amount ELSE 0 END), 2) as total_spent,
+    ROUND(AVG(b.final_amount), 2) as avg_booking_value,
+    MAX(b.check_in) as last_booking_date
+FROM guests g
+LEFT JOIN bookings b ON g.guest_id = b.guest_id
+GROUP BY g.guest_id, g.name, g.email, g.membership_level, g.loyalty_points
+HAVING total_bookings > 0
+ORDER BY total_spent DESC
+LIMIT 25;`,
+                description: 'Guest spending analysis using LEFT JOIN with aggregation'
+            },
+            {
+                name: 'Room Inventory by Hotel',
+                sql: `SELECT 
+    h.hotel_name,
+    h.city,
+    rt.type_name,
+    COUNT(r.room_id) as room_count,
+    ROUND(MIN(r.price), 2) as min_price,
+    ROUND(MAX(r.price), 2) as max_price,
+    ROUND(AVG(r.price), 2) as avg_price,
+    ROUND(AVG(r.area_sqft), 0) as avg_area_sqft
+FROM hotels h
+INNER JOIN rooms r ON h.hotel_id = r.hotel_id
+INNER JOIN room_types rt ON r.type_id = rt.type_id
+WHERE r.is_active = 1
+GROUP BY h.hotel_id, h.hotel_name, h.city, rt.type_id, rt.type_name
+ORDER BY h.hotel_name, rt.type_name;`,
+                description: 'Room statistics by hotel and type using INNER JOIN'
+            },
+            {
+                name: 'Event Registration Details',
+                sql: `SELECT 
+    e.event_name,
+    h.hotel_name,
+    e.event_date,
+    e.venue,
+    e.max_participants,
+    e.current_participants,
+    COUNT(eb.event_booking_id) as total_bookings,
+    SUM(eb.participants) as registered_participants,
+    GROUP_CONCAT(DISTINCT g.name SEPARATOR ', ') as attendee_names
+FROM events e
+INNER JOIN hotels h ON e.hotel_id = h.hotel_id
+LEFT JOIN event_bookings eb ON e.event_id = eb.event_id 
+    AND eb.booking_status = 'Confirmed'
+LEFT JOIN guests g ON eb.guest_id = g.guest_id
+WHERE e.event_status = 'Upcoming'
+GROUP BY e.event_id, e.event_name, h.hotel_name, e.event_date, 
+         e.venue, e.max_participants, e.current_participants
+ORDER BY e.event_date
+LIMIT 15;`,
+                description: 'Event details with attendee information using mixed INNER and LEFT JOINs'
+            },
+            {
+                name: 'Payment Transaction History',
+                sql: `SELECT 
+    p.payment_id,
+    g.name as guest_name,
+    h.hotel_name,
+    b.booking_id,
+    b.check_in,
+    b.final_amount as booking_amount,
+    p.amount as paid_amount,
+    p.payment_method,
+    p.payment_date,
+    p.transaction_id
+FROM payments p
+INNER JOIN bookings b ON p.booking_id = b.booking_id
+INNER JOIN guests g ON b.guest_id = g.guest_id
+INNER JOIN rooms r ON b.room_id = r.room_id
+INNER JOIN hotels h ON r.hotel_id = h.hotel_id
+WHERE p.payment_status = 'Completed'
+ORDER BY p.payment_date DESC
+LIMIT 30;`,
+                description: 'Payment history with complete transaction details using multiple INNER JOINs'
+            }
+        ],
+        subquery: [
+            {
+                name: 'Hotels with Budget Rooms',
+                sql: `SELECT h.hotel_name, h.city, h.star_rating
+FROM hotels h
+WHERE h.hotel_id IN (
+    SELECT DISTINCT r.hotel_id 
+    FROM rooms r 
+    WHERE r.price < 150 AND r.is_active = 1
+)
+ORDER BY h.hotel_name;`,
+                description: 'Using IN subquery to find hotels that have rooms under $150'
+            },
+            {
+                name: 'Above-Average Loyalty Points',
+                sql: `SELECT g.name, g.email, g.membership_level, g.loyalty_points
+FROM guests g
+WHERE g.loyalty_points > (
+    SELECT AVG(loyalty_points) 
+    FROM guests
+)
+ORDER BY g.loyalty_points DESC
+LIMIT 20;`,
+                description: 'Scalar subquery to find guests with above-average loyalty points'
+            },
+            {
+                name: 'Hotel Room Statistics',
+                sql: `SELECT 
+    h.hotel_name, 
+    h.city,
+    (SELECT COUNT(*) FROM rooms r WHERE r.hotel_id = h.hotel_id AND r.is_active = 1) as total_rooms,
+    (SELECT ROUND(AVG(price), 2) FROM rooms r WHERE r.hotel_id = h.hotel_id) as avg_price,
+    (SELECT MIN(price) FROM rooms r WHERE r.hotel_id = h.hotel_id) as min_price,
+    (SELECT MAX(price) FROM rooms r WHERE r.hotel_id = h.hotel_id) as max_price
+FROM hotels h
+WHERE h.is_active = 1
+ORDER BY total_rooms DESC;`,
+                description: 'Correlated subqueries in SELECT clause for room statistics'
+            },
+            {
+                name: 'Most Expensive Room per Hotel',
+                sql: `SELECT r.room_id, h.hotel_name, r.room_number, rt.type_name, r.price
+FROM rooms r
+JOIN hotels h ON r.hotel_id = h.hotel_id
+JOIN room_types rt ON r.type_id = rt.type_id
+WHERE r.price = (
+    SELECT MAX(price) 
+    FROM rooms r2 
+    WHERE r2.hotel_id = r.hotel_id
+)
+ORDER BY r.price DESC;`,
+                description: 'Correlated subquery to find the highest priced room in each hotel'
+            },
+            {
+                name: 'Hotels with Upcoming Events',
+                sql: `SELECT h.hotel_name, h.city, h.star_rating
+FROM hotels h
+WHERE EXISTS (
+    SELECT 1 
+    FROM events e 
+    WHERE e.hotel_id = h.hotel_id 
+      AND e.event_status = 'Upcoming'
+      AND e.event_date >= CURDATE()
+)
+ORDER BY h.hotel_name;`,
+                description: 'Using EXISTS to find hotels that have upcoming events'
+            },
+            {
+                name: 'Guests Without Bookings',
+                sql: `SELECT g.guest_id, g.name, g.email, g.created_at
+FROM guests g
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM bookings b 
+    WHERE b.guest_id = g.guest_id
+)
+ORDER BY g.created_at DESC
+LIMIT 25;`,
+                description: 'Using NOT EXISTS to find guests who have never made a booking'
+            },
+            {
+                name: 'High-Value Bookings',
+                sql: `SELECT 
+    b.booking_id,
+    g.name as guest_name,
+    h.hotel_name,
+    b.check_in,
+    b.final_amount,
+    ROUND((b.final_amount / (SELECT AVG(final_amount) FROM bookings) * 100), 2) as percent_of_avg
+FROM bookings b
+JOIN guests g ON b.guest_id = g.guest_id
+JOIN rooms r ON b.room_id = r.room_id
+JOIN hotels h ON r.hotel_id = h.hotel_id
+WHERE b.final_amount > (
+    SELECT AVG(final_amount) * 1.5 
+    FROM bookings
+)
+ORDER BY b.final_amount DESC
+LIMIT 20;`,
+                description: 'Find bookings 50% above average using scalar subquery'
+            }
+        ],
+        aggregate: [
+            {
+                name: 'Revenue by Hotel',
+                sql: `SELECT 
+    h.hotel_name,
+    COUNT(DISTINCT b.booking_id) as total_bookings,
+    COUNT(DISTINCT b.guest_id) as unique_guests,
+    ROUND(SUM(b.final_amount), 2) as total_revenue,
+    ROUND(AVG(b.final_amount), 2) as avg_booking_value,
+    MAX(b.final_amount) as highest_booking,
+    MIN(b.final_amount) as lowest_booking
+FROM hotels h
+LEFT JOIN rooms r ON h.hotel_id = r.hotel_id
+LEFT JOIN bookings b ON r.room_id = b.room_id 
+    AND b.payment_status = 'Paid'
+GROUP BY h.hotel_id, h.hotel_name
+ORDER BY total_revenue DESC;`,
+                description: 'Aggregate functions: COUNT, SUM, AVG, MAX, MIN for hotel revenue analysis'
+            },
+            {
+                name: 'Monthly Booking Trends',
+                sql: `SELECT 
+    YEAR(check_in) as year,
+    MONTH(check_in) as month,
+    MONTHNAME(check_in) as month_name,
+    COUNT(booking_id) as total_bookings,
+    ROUND(SUM(final_amount), 2) as revenue,
+    ROUND(AVG(final_amount), 2) as avg_booking_value,
+    COUNT(DISTINCT guest_id) as unique_guests
+FROM bookings
+WHERE booking_status IN ('Confirmed', 'Completed')
+  AND check_in >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+GROUP BY YEAR(check_in), MONTH(check_in), MONTHNAME(check_in)
+ORDER BY year DESC, month DESC;`,
+                description: 'Time-based aggregation showing monthly booking and revenue trends'
+            },
+            {
+                name: 'Guest Segmentation by Spending',
+                sql: `SELECT 
+    CASE 
+        WHEN total_spent >= 2000 THEN 'High Value'
+        WHEN total_spent >= 500 THEN 'Medium Value'
+        ELSE 'Low Value'
+    END as customer_segment,
+    COUNT(*) as guest_count,
+    ROUND(AVG(total_spent), 2) as avg_spent,
+    ROUND(SUM(total_spent), 2) as segment_revenue,
+    ROUND(MIN(total_spent), 2) as min_spent,
+    ROUND(MAX(total_spent), 2) as max_spent
+FROM (
+    SELECT g.guest_id, SUM(b.final_amount) as total_spent
+    FROM guests g
+    JOIN bookings b ON g.guest_id = b.guest_id
+    WHERE b.payment_status = 'Paid'
+    GROUP BY g.guest_id
+) as guest_spending
+GROUP BY customer_segment
+ORDER BY avg_spent DESC;`,
+                description: 'CASE statement with aggregation for customer value segmentation'
+            },
+            {
+                name: 'Room Type Performance',
+                sql: `SELECT 
+    rt.type_name,
+    COUNT(DISTINCT r.room_id) as total_rooms,
+    COUNT(DISTINCT b.booking_id) as bookings_count,
+    ROUND(AVG(r.price), 2) as avg_room_price,
+    ROUND(SUM(b.final_amount), 2) as total_revenue,
+    ROUND(AVG(b.final_amount), 2) as avg_booking_revenue,
+    ROUND(COUNT(b.booking_id) / COUNT(DISTINCT r.room_id), 2) as bookings_per_room
+FROM room_types rt
+LEFT JOIN rooms r ON rt.type_id = r.type_id
+LEFT JOIN bookings b ON r.room_id = b.room_id 
+    AND b.booking_status IN ('Confirmed', 'Completed')
+GROUP BY rt.type_id, rt.type_name
+ORDER BY total_revenue DESC;`,
+                description: 'Performance metrics by room type with calculated ratios'
+            },
+            {
+                name: 'Membership Tier Analysis',
+                sql: `SELECT 
+    membership_level,
+    COUNT(*) as member_count,
+    ROUND(AVG(loyalty_points), 0) as avg_points,
+    MIN(loyalty_points) as min_points,
+    MAX(loyalty_points) as max_points,
+    ROUND(AVG(YEAR(CURDATE()) - YEAR(date_of_birth)), 0) as avg_age
+FROM guests
+WHERE is_active = 1 AND date_of_birth IS NOT NULL
+GROUP BY membership_level
+ORDER BY 
+    CASE membership_level
+        WHEN 'Platinum' THEN 1
+        WHEN 'Gold' THEN 2
+        WHEN 'Silver' THEN 3
+        WHEN 'Bronze' THEN 4
+    END;`,
+                description: 'Membership statistics with custom sorting using CASE'
+            },
+            {
+                name: 'Event Participation Stats',
+                sql: `SELECT 
+    e.event_type,
+    COUNT(DISTINCT e.event_id) as total_events,
+    SUM(e.current_participants) as total_participants,
+    ROUND(AVG(e.current_participants), 1) as avg_participants,
+    ROUND(AVG((e.current_participants / e.max_participants) * 100), 2) as avg_fill_rate,
+    ROUND(SUM(e.price * e.current_participants), 2) as total_revenue
+FROM events e
+WHERE e.event_status IN ('Upcoming', 'Completed')
+GROUP BY e.event_type
+ORDER BY total_revenue DESC;`,
+                description: 'Event metrics with fill rate calculations'
+            }
+        ],
+        view: [
+            {
+                name: 'Hotel Occupancy View',
+                sql: 'SELECT * FROM vw_hotel_occupancy ORDER BY occupancy_rate DESC;',
+                description: 'Real-time hotel occupancy statistics with check-in/check-out today'
+            },
+            {
+                name: 'Guest Booking History View',
+                sql: 'SELECT * FROM vw_guest_booking_history ORDER BY booking_date DESC LIMIT 30;',
+                description: 'Complete guest booking history with hotel and room details'
+            },
+            {
+                name: 'Hotel Revenue Summary View',
+                sql: 'SELECT * FROM vw_hotel_revenue_summary ORDER BY total_revenue DESC;',
+                description: 'Revenue analytics by hotel with booking statistics and ratings'
+            },
+            {
+                name: 'Room Availability View',
+                sql: 'SELECT * FROM vw_room_availability WHERE current_status = "Available" LIMIT 40;',
+                description: 'Current room availability status across all hotels'
+            },
+            {
+                name: 'Upcoming Events View',
+                sql: 'SELECT * FROM vw_upcoming_events ORDER BY event_date LIMIT 20;',
+                description: 'Upcoming events with participation details and fill rates'
+            },
+            {
+                name: 'Guest Loyalty Tiers View',
+                sql: 'SELECT * FROM vw_guest_loyalty_tiers;',
+                description: 'Guest loyalty statistics aggregated by membership tier'
+            }
+        ]
+    };
+
+    // Update query list based on selected type
+    function updateQueryList() {
+        const queryType = document.getElementById('query-type').value;
+        const queryList = document.getElementById('query-list');
+        const listContainer = document.getElementById('query-list-container');
+        const descContainer = document.getElementById('query-description');
+        const executeContainer = document.getElementById('execute-button-container');
+        
+        // Clear previous selections
+        queryList.innerHTML = '<option value="">-- Select a Query --</option>';
+        document.getElementById('custom-sql-query').value = '';
+        descContainer.innerHTML = '';
+        descContainer.style.display = 'none';
+        
+        if (queryType && queries[queryType]) {
+            // Show query list
+            listContainer.style.display = 'block';
+            
+            // Populate queries
+            queries[queryType].forEach((query, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = query.name;
+                queryList.appendChild(option);
+            });
+            
+            // Hide execute until query selected
+            executeContainer.style.display = 'none';
+        } else {
+            listContainer.style.display = 'none';
+            descContainer.style.display = 'none';
+            executeContainer.style.display = 'none';
+        }
     }
+
+    // Load selected query
+    function loadQuery() {
+        const queryType = document.getElementById('query-type').value;
+        const queryIndex = document.getElementById('query-list').value;
+        const descContainer = document.getElementById('query-description');
+        const executeContainer = document.getElementById('execute-button-container');
+        
+        if (queryType && queryIndex !== '' && queries[queryType][queryIndex]) {
+            const selectedQuery = queries[queryType][queryIndex];
+            
+            // Set SQL query in hidden field
+            document.getElementById('custom-sql-query').value = selectedQuery.sql;
+            
+            // Show description
+            descContainer.innerHTML = '<strong>📝 Query Description:</strong> ' + selectedQuery.description;
+            descContainer.style.display = 'block';
+            
+            // Show execute button
+            executeContainer.style.display = 'block';
+            
+            // Scroll to execute button
+            executeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            descContainer.style.display = 'none';
+            executeContainer.style.display = 'none';
+        }
+    }
+
+    // Reset form
+    function resetForm() {
+        document.getElementById('query-form').reset();
+        document.getElementById('query-list-container').style.display = 'none';
+        document.getElementById('query-description').style.display = 'none';
+        document.getElementById('execute-button-container').style.display = 'none';
+        document.getElementById('custom-sql-query').value = '';
+        document.getElementById('query-description').innerHTML = '';
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        <?php if (!empty($_POST['query_type'])): ?>
+        updateQueryList();
+        <?php if (!empty($_POST['query_name'])): ?>
+        document.getElementById('query-list').value = '<?= $_POST['query_name'] ?? '' ?>';
+        loadQuery();
+        <?php endif; ?>
+        <?php endif; ?>
+    });
     </script>
 
-    <!-- Functions Demonstration Section -->
-    <div class="query-section" style="background: #f0fdf4;">
-        <h3>📊 Interactive Database Functions</h3>
-        <p>Test custom SQL functions with your own parameters:</p>
-
-        <!-- CalculateAge Function -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-            <h4 style="color: #059669; margin-top: 0;">1. CalculateAge Function</h4>
-            <p><strong>Purpose:</strong> Calculate age from date of birth</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Date of Birth:</label>
-                        <input type="date" name="age_dob" value="<?= $_POST['age_dob'] ?? '2000-01-01' ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <button type="submit" name="calc_age" class="btn btn-primary" style="padding: 8px 16px;">Calculate Age</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['calc_age']) && !empty($_POST['age_dob'])) {
-                $dob = $conn->real_escape_string($_POST['age_dob']);
-                $age_query = "SELECT CalculateAge('$dob') as age";
-                $age_result = $conn->query($age_query);
-                if ($age_result && $row = $age_result->fetch_assoc()) {
-                    echo "<div style='background: #dcfce7; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "<strong style='color: #059669;'>Result:</strong> Age is <strong>{$row['age']} years</strong>";
-                    echo "</div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;"><strong>SQL:</strong> <code>SELECT CalculateAge('<?= $_POST['age_dob'] ?? '2000-01-01' ?>');</code></p>
-        </div>
-
-        <!-- GetSeason Function -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-            <h4 style="color: #059669; margin-top: 0;">2. GetSeason Function</h4>
-            <p><strong>Purpose:</strong> Determine season for dynamic pricing (Peak/High/Normal)</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Check Date:</label>
-                        <input type="date" name="season_date" value="<?= $_POST['season_date'] ?? date('Y-m-d') ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <button type="submit" name="calc_season" class="btn btn-primary" style="padding: 8px 16px;">Get Season</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['calc_season']) && !empty($_POST['season_date'])) {
-                $check_date = $conn->real_escape_string($_POST['season_date']);
-                $season_query = "SELECT GetSeason('$check_date') as season";
-                $season_result = $conn->query($season_query);
-                if ($season_result && $row = $season_result->fetch_assoc()) {
-                    $season_color = $row['season'] == 'Peak' ? '#dc2626' : ($row['season'] == 'High' ? '#ea580c' : '#059669');
-                    echo "<div style='background: #dcfce7; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "<strong style='color: #059669;'>Result:</strong> Date falls in <strong style='color: $season_color;'>{$row['season']}</strong> season";
-                    echo "</div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;"><strong>SQL:</strong> <code>SELECT GetSeason('<?= $_POST['season_date'] ?? date('Y-m-d') ?>');</code></p>
-        </div>
-
-        <!-- CalculateDynamicPrice Function -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-            <h4 style="color: #059669; margin-top: 0;">3. CalculateDynamicPrice Function</h4>
-            <p><strong>Purpose:</strong> Calculate dynamic pricing based on season, advance booking, and room type</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Base Price ($):</label>
-                        <input type="number" name="base_price" value="<?= $_POST['base_price'] ?? '100' ?>" step="0.01" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; width: 100px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Check-in Date:</label>
-                        <input type="date" name="price_date" value="<?= $_POST['price_date'] ?? date('Y-m-d', strtotime('+30 days')) ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Room Type:</label>
-                        <select name="room_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                            <?php
-                            $types_query = "SELECT DISTINCT type_name FROM room_types ORDER BY type_name";
-                            $types_result = $conn->query($types_query);
-                            $selected_type = $_POST['room_type'] ?? 'Standard';
-                            while ($type = $types_result->fetch_assoc()) {
-                                $selected = ($type['type_name'] == $selected_type) ? 'selected' : '';
-                                echo "<option value='{$type['type_name']}' $selected>{$type['type_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <button type="submit" name="calc_price" class="btn btn-primary" style="padding: 8px 16px;">Calculate Price</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['calc_price']) && !empty($_POST['base_price']) && !empty($_POST['price_date']) && !empty($_POST['room_type'])) {
-                $base = $conn->real_escape_string($_POST['base_price']);
-                $date = $conn->real_escape_string($_POST['price_date']);
-                $type = $conn->real_escape_string($_POST['room_type']);
-                $price_query = "SELECT CalculateDynamicPrice($base, '$date', '$type') as dynamic_price, GetSeason('$date') as season";
-                $price_result = $conn->query($price_query);
-                if ($price_result && $row = $price_result->fetch_assoc()) {
-                    $diff = $row['dynamic_price'] - $base;
-                    $diff_sign = $diff >= 0 ? '+' : '';
-                    echo "<div style='background: #dcfce7; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "<strong style='color: #059669;'>Result:</strong> Base Price: \$$base → Dynamic Price: <strong style='color: #dc2626;'>\${$row['dynamic_price']}</strong> ";
-                    echo "({$diff_sign}" . number_format($diff, 2) . ") - Season: <strong>{$row['season']}</strong>";
-                    echo "</div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;"><strong>SQL:</strong> <code>SELECT CalculateDynamicPrice(<?= $_POST['base_price'] ?? '100' ?>, '<?= $_POST['price_date'] ?? date('Y-m-d', strtotime('+30 days')) ?>', '<?= $_POST['room_type'] ?? 'Standard' ?>');</code></p>
-        </div>
-    </div>
-
-    <!-- Procedures Interactive Section -->
-    <div class="query-section" style="background: #eff6ff;">
-        <h3>🔧 Interactive Stored Procedures</h3>
-        <p>Execute stored procedures with your own parameters:</p>
-
-        <!-- CalculateLoyaltyPoints Procedure -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #bfdbfe;">
-            <h4 style="color: #2563eb; margin-top: 0;">1. CalculateLoyaltyPoints</h4>
-            <p><strong>Purpose:</strong> Calculate and award loyalty points based on booking amount</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Booking ID:</label>
-                        <select name="loyalty_booking_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
-                            <?php
-                            $bookings_query = "SELECT b.booking_id, g.name, h.hotel_name, b.final_amount 
-                                             FROM bookings b 
-                                             JOIN guests g ON b.guest_id = g.guest_id 
-                                             JOIN rooms r ON b.room_id = r.room_id 
-                                             JOIN hotels h ON r.hotel_id = h.hotel_id 
-                                             ORDER BY b.booking_id DESC LIMIT 20";
-                            $bookings_result = $conn->query($bookings_query);
-                            while ($booking = $bookings_result->fetch_assoc()) {
-                                $selected = (isset($_POST['loyalty_booking_id']) && $_POST['loyalty_booking_id'] == $booking['booking_id']) ? 'selected' : '';
-                                echo "<option value='{$booking['booking_id']}' $selected>ID: {$booking['booking_id']} - {$booking['name']} @ {$booking['hotel_name']} (\${$booking['final_amount']})</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <button type="submit" name="exec_loyalty" class="btn btn-primary" style="padding: 8px 16px;">Calculate Points</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['exec_loyalty']) && !empty($_POST['loyalty_booking_id'])) {
-                $booking_id = intval($_POST['loyalty_booking_id']);
-                
-                // Get guest info before
-                $before_query = "SELECT g.name, g.loyalty_points, g.membership_level, b.final_amount 
-                               FROM guests g 
-                               JOIN bookings b ON g.guest_id = b.guest_id 
-                               WHERE b.booking_id = $booking_id";
-                $before_result = $conn->query($before_query);
-                $before = $before_result->fetch_assoc();
-                
-                // Execute procedure
-                $proc_query = "CALL CalculateLoyaltyPoints($booking_id)";
-                $proc_result = $conn->query($proc_query);
-                
-                // Free the procedure result set
-                if ($proc_result) {
-                    while ($conn->more_results()) {
-                        $conn->next_result();
-                    }
-                }
-                
-                // Get guest info after
-                $after_query = "SELECT g.loyalty_points, g.membership_level 
-                              FROM guests g 
-                              JOIN bookings b ON g.guest_id = b.guest_id 
-                              WHERE b.booking_id = $booking_id";
-                $after_result = $conn->query($after_query);
-                $after = $after_result->fetch_assoc();
-                
-                $points_earned = $after['loyalty_points'] - $before['loyalty_points'];
-                echo "<div style='background: #dbeafe; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                echo "<strong style='color: #2563eb;'>Result for {$before['name']}:</strong><br>";
-                echo "Booking Amount: <strong>\${$before['final_amount']}</strong> | ";
-                echo "Points Earned: <strong style='color: #059669;'>+{$points_earned}</strong> | ";
-                echo "Total Points: <strong>{$after['loyalty_points']}</strong> | ";
-                if ($before['membership_level'] != $after['membership_level']) {
-                    echo "Membership: <strong style='color: #dc2626;'>{$before['membership_level']} → {$after['membership_level']}</strong> 🎉";
-                } else {
-                    echo "Membership: <strong>{$after['membership_level']}</strong>";
-                }
-                echo "</div>";
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Awards 1 point per $10 spent and upgrades membership tier automatically</p>
-        </div>
-
-        <!-- CalculateRoomRevenue Procedure -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #bfdbfe;">
-            <h4 style="color: #2563eb; margin-top: 0;">2. CalculateRoomRevenue</h4>
-            <p><strong>Purpose:</strong> Calculate total revenue for a hotel within date range</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Hotel:</label>
-                        <select name="revenue_hotel_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 180px;">
-                            <?php
-                            $hotels_query = "SELECT hotel_id, hotel_name FROM hotels ORDER BY hotel_name";
-                            $hotels_result = $conn->query($hotels_query);
-                            while ($hotel = $hotels_result->fetch_assoc()) {
-                                $selected = (isset($_POST['revenue_hotel_id']) && $_POST['revenue_hotel_id'] == $hotel['hotel_id']) ? 'selected' : '';
-                                echo "<option value='{$hotel['hotel_id']}' $selected>{$hotel['hotel_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Start Date:</label>
-                        <input type="date" name="revenue_start" value="<?= $_POST['revenue_start'] ?? date('Y-01-01') ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">End Date:</label>
-                        <input type="date" name="revenue_end" value="<?= $_POST['revenue_end'] ?? date('Y-12-31') ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <button type="submit" name="exec_revenue" class="btn btn-primary" style="padding: 8px 16px;">Calculate Revenue</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['exec_revenue']) && !empty($_POST['revenue_hotel_id'])) {
-                $hotel_id = intval($_POST['revenue_hotel_id']);
-                $start = $conn->real_escape_string($_POST['revenue_start']);
-                $end = $conn->real_escape_string($_POST['revenue_end']);
-                
-                // Get hotel name first
-                $hotel_query = "SELECT hotel_name FROM hotels WHERE hotel_id = $hotel_id";
-                $hotel_result = $conn->query($hotel_query);
-                $hotel = $hotel_result->fetch_assoc();
-                
-                // Call procedure
-                $proc_query = "CALL CalculateRoomRevenue($hotel_id, '$start', '$end', @revenue)";
-                $proc_result = $conn->query($proc_query);
-                
-                // Free the procedure result set
-                if ($proc_result) {
-                    while ($conn->more_results()) {
-                        $conn->next_result();
-                    }
-                }
-                
-                // Now get the OUT parameter
-                $result_query = "SELECT @revenue as total_revenue";
-                $result = $conn->query($result_query);
-                $row = $result->fetch_assoc();
-                
-                echo "<div style='background: #dbeafe; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                echo "<strong style='color: #2563eb;'>Result for {$hotel['hotel_name']}:</strong><br>";
-                echo "Period: <strong>$start to $end</strong> | ";
-                echo "Total Revenue: <strong style='color: #059669; font-size: 18px;'>\$" . number_format($row['total_revenue'], 2) . "</strong>";
-                echo "</div>";
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Uses OUT parameter to return total revenue from completed bookings</p>
-        </div>
-
-        <!-- GenerateMonthlyHotelReport Procedure -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #bfdbfe;">
-            <h4 style="color: #2563eb; margin-top: 0;">3. GenerateMonthlyHotelReport</h4>
-            <p><strong>Purpose:</strong> Generate comprehensive monthly performance report</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Hotel:</label>
-                        <select name="report_hotel_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 180px;">
-                            <?php
-                            $hotels_query = "SELECT hotel_id, hotel_name FROM hotels ORDER BY hotel_name";
-                            $hotels_result = $conn->query($hotels_query);
-                            while ($hotel = $hotels_result->fetch_assoc()) {
-                                $selected = (isset($_POST['report_hotel_id']) && $_POST['report_hotel_id'] == $hotel['hotel_id']) ? 'selected' : '';
-                                echo "<option value='{$hotel['hotel_id']}' $selected>{$hotel['hotel_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Year:</label>
-                        <input type="number" name="report_year" value="<?= $_POST['report_year'] ?? date('Y') ?>" min="2020" max="2030"
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; width: 100px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Month:</label>
-                        <select name="report_month" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                            <?php
-                            $months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                            $current_month = $_POST['report_month'] ?? date('n');
-                            for ($i = 1; $i <= 12; $i++) {
-                                $selected = ($i == $current_month) ? 'selected' : '';
-                                $month_index = $i - 1;
-                                echo "<option value='$i' $selected>{$months[$month_index]}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <button type="submit" name="exec_report" class="btn btn-primary" style="padding: 8px 16px;">Generate Report</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['exec_report']) && !empty($_POST['report_hotel_id'])) {
-                $hotel_id = intval($_POST['report_hotel_id']);
-                $year = intval($_POST['report_year']);
-                $month = intval($_POST['report_month']);
-                
-                // Get hotel name first, before calling procedure
-                $hotel_query = "SELECT hotel_name FROM hotels WHERE hotel_id = $hotel_id";
-                $hotel_result = $conn->query($hotel_query);
-                $hotel = $hotel_result->fetch_assoc();
-                
-                // Now call the procedure
-                $proc_query = "CALL GenerateMonthlyHotelReport($hotel_id, $year, $month)";
-                $report_result = $conn->query($proc_query);
-                
-                if ($report_result && $report_result->num_rows > 0) {
-                    $report = $report_result->fetch_assoc();
-                    
-                    echo "<div style='background: #dbeafe; padding: 15px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "<strong style='color: #2563eb; font-size: 16px;'>Monthly Report - {$hotel['hotel_name']}</strong><br>";
-                    echo "<strong>Period:</strong> " . date('F Y', mktime(0, 0, 0, $month, 1, $year)) . "<br><br>";
-                    echo "<div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;'>";
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px;'><strong>Total Bookings:</strong> " . ($report['total_bookings'] ?? 0) . "</div>";
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px;'><strong>Total Revenue:</strong> \$" . number_format($report['total_revenue'] ?? 0, 2) . "</div>";
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px;'><strong>Unique Guests:</strong> " . ($report['unique_guests'] ?? 0) . "</div>";
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px;'><strong>Avg Rating:</strong> " . ($report['avg_rating'] ?? 0) . "/5.0</div>";
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px;'><strong>Events Hosted:</strong> " . ($report['events_count'] ?? 0) . "</div>";
-                    echo "</div></div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Returns comprehensive monthly statistics including bookings, revenue, guests, ratings, and events</p>
-        </div>
-
-        <!-- GetAvailableRooms Procedure -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #bfdbfe;">
-            <h4 style="color: #2563eb; margin-top: 0;">4. GetAvailableRooms</h4>
-            <p><strong>Purpose:</strong> Find available rooms for specified dates and criteria</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Hotel:</label>
-                        <select name="avail_hotel_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 180px;">
-                            <?php
-                            $hotels_query = "SELECT hotel_id, hotel_name FROM hotels ORDER BY hotel_name";
-                            $hotels_result = $conn->query($hotels_query);
-                            while ($hotel = $hotels_result->fetch_assoc()) {
-                                $selected = (isset($_POST['avail_hotel_id']) && $_POST['avail_hotel_id'] == $hotel['hotel_id']) ? 'selected' : '';
-                                echo "<option value='{$hotel['hotel_id']}' $selected>{$hotel['hotel_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Check-in:</label>
-                        <input type="date" name="avail_checkin" value="<?= $_POST['avail_checkin'] ?? date('Y-m-d', strtotime('+1 day')) ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Check-out:</label>
-                        <input type="date" name="avail_checkout" value="<?= $_POST['avail_checkout'] ?? date('Y-m-d', strtotime('+3 days')) ?>" 
-                               style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-size: 13px;">Room Type (Optional):</label>
-                        <select name="avail_type_id" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                            <option value="">All Types</option>
-                            <?php
-                            $types_query = "SELECT type_id, type_name FROM room_types ORDER BY type_name";
-                            $types_result = $conn->query($types_query);
-                            while ($type = $types_result->fetch_assoc()) {
-                                $selected = (isset($_POST['avail_type_id']) && $_POST['avail_type_id'] == $type['type_id']) ? 'selected' : '';
-                                echo "<option value='{$type['type_id']}' $selected>{$type['type_name']}</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <button type="submit" name="exec_available" class="btn btn-primary" style="padding: 8px 16px;">Find Rooms</button>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['exec_available']) && !empty($_POST['avail_hotel_id'])) {
-                $hotel_id = intval($_POST['avail_hotel_id']);
-                $checkin = $conn->real_escape_string($_POST['avail_checkin']);
-                $checkout = $conn->real_escape_string($_POST['avail_checkout']);
-                $type_id = !empty($_POST['avail_type_id']) ? intval($_POST['avail_type_id']) : 'NULL';
-                
-                $proc_query = "CALL GetAvailableRooms($hotel_id, '$checkin', '$checkout', $type_id)";
-                $rooms_result = $conn->query($proc_query);
-                
-                if ($rooms_result && $rooms_result->num_rows > 0) {
-                    echo "<div style='margin-top: 10px; overflow-x: auto;'>";
-                    echo "<table class='table'>";
-                    echo "<thead><tr><th>Room Number</th><th>Type</th><th>Capacity</th><th>Price</th><th>Status</th></tr></thead><tbody>";
-                    while ($room = $rooms_result->fetch_assoc()) {
-                        echo "<tr>";
-                        echo "<td><strong>{$room['room_number']}</strong></td>";
-                        echo "<td>{$room['type_name']}</td>";
-                        $capacity = isset($room['capacity']) ? $room['capacity'] . ' guests' : 'N/A';
-                        echo "<td>$capacity</td>";
-                        echo "<td style='color: #059669; font-weight: bold;'>\${$room['price']}/night</td>";
-                        echo "<td><span style='background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 12px;'>Available</span></td>";
-                        echo "</tr>";
-                    }
-                    echo "</tbody></table></div>";
-                } else {
-                    echo "<div style='background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 6px; margin-top: 10px;'>";
-                    echo "No rooms available for the selected dates.";
-                    echo "</div>";
-                }
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Finds rooms not booked during the specified date range</p>
-        </div>
-
-        <!-- ProcessLoyaltyUpgrades Procedure -->
-        <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #bfdbfe;">
-            <h4 style="color: #2563eb; margin-top: 0;">5. ProcessLoyaltyUpgrades</h4>
-            <p><strong>Purpose:</strong> Process batch loyalty tier upgrades for all guests</p>
-            <form method="post" style="margin: 15px 0;">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <button type="submit" name="exec_loyalty_upgrade" class="btn btn-primary" style="padding: 8px 16px;">Process All Upgrades</button>
-                    <span style="font-size: 13px; color: #666;">⚠️ This will update membership levels for all guests based on their loyalty points</span>
-                </div>
-            </form>
-            <?php
-            if (isset($_POST['exec_loyalty_upgrade'])) {
-                // Get counts before
-                $before_query = "SELECT membership_level, COUNT(*) as count FROM guests GROUP BY membership_level";
-                $before_result = $conn->query($before_query);
-                $before = [];
-                while ($row = $before_result->fetch_assoc()) {
-                    $before[$row['membership_level']] = $row['count'];
-                }
-                
-                // Execute procedure
-                $proc_query = "CALL ProcessLoyaltyUpgrades()";
-                $proc_result = $conn->query($proc_query);
-                
-                // Free the procedure result set
-                if ($proc_result) {
-                    while ($conn->more_results()) {
-                        $conn->next_result();
-                    }
-                }
-                
-                // Get counts after
-                $after_query = "SELECT membership_level, COUNT(*) as count FROM guests GROUP BY membership_level";
-                $after_result = $conn->query($after_query);
-                $after = [];
-                while ($row = $after_result->fetch_assoc()) {
-                    $after[$row['membership_level']] = $row['count'];
-                }
-                
-                echo "<div style='background: #dbeafe; padding: 15px; border-radius: 6px; margin-top: 10px;'>";
-                echo "<strong style='color: #2563eb; font-size: 16px;'>Loyalty Upgrades Processed Successfully! 🎉</strong><br><br>";
-                echo "<div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;'>";
-                foreach (['Bronze', 'Silver', 'Gold', 'Platinum'] as $level) {
-                    $before_count = $before[$level] ?? 0;
-                    $after_count = $after[$level] ?? 0;
-                    $diff = $after_count - $before_count;
-                    $diff_text = $diff > 0 ? "+$diff" : ($diff < 0 ? "$diff" : "0");
-                    $color = $level == 'Bronze' ? '#cd7f32' : ($level == 'Silver' ? '#c0c0c0' : ($level == 'Gold' ? '#ffd700' : '#e5e4e2'));
-                    echo "<div style='background: white; padding: 10px; border-radius: 4px; border-left: 4px solid $color;'>";
-                    echo "<strong>$level:</strong> $after_count";
-                    if ($diff != 0) echo " <span style='color: " . ($diff > 0 ? '#059669' : '#dc2626') . ";'>($diff_text)</span>";
-                    echo "</div>";
-                }
-                echo "</div></div>";
-            }
-            ?>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Bronze: 0-99 points | Silver: 100-499 | Gold: 500-999 | Platinum: 1000+</p>
-        </div>
-    </div>
 </div>
 </body>
 </html>

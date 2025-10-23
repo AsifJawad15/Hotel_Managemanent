@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 03, 2025 at 06:08 PM
+-- Generation Time: Oct 23, 2025 at 09:05 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -135,6 +135,37 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `GetAvailableRooms` (IN `p_hotel_id`
         AND NOT (p_check_out <= b.check_in OR p_check_in >= b.check_out)
     )
     ORDER BY r.price ASC;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `GetQueryHistory` (IN `p_admin_id` INT, IN `p_favorites_only` TINYINT, IN `p_limit` INT)   BEGIN
+    IF p_favorites_only = 1 THEN
+        SELECT 
+            history_id,
+            natural_query,
+            generated_sql,
+            explanation,
+            execution_status,
+            rows_returned,
+            created_at
+        FROM ai_query_history
+        WHERE admin_id = p_admin_id AND is_favorite = 1
+        ORDER BY created_at DESC
+        LIMIT p_limit;
+    ELSE
+        SELECT 
+            history_id,
+            natural_query,
+            generated_sql,
+            explanation,
+            execution_status,
+            rows_returned,
+            is_favorite,
+            created_at
+        FROM ai_query_history
+        WHERE admin_id = p_admin_id
+        ORDER BY created_at DESC
+        LIMIT p_limit;
+    END IF;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `ProcessLoyaltyUpgrades` ()   BEGIN
@@ -288,6 +319,26 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `UpdateRoomPricesManual` (IN `p_hote
            p_percentage as percentage_applied;
 END$$
 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `UpdateUsageStats` (IN `p_admin_id` INT, IN `p_tokens` INT, IN `p_executed` TINYINT, IN `p_success` TINYINT)   BEGIN
+    INSERT INTO ai_usage_stats (admin_id, usage_date, queries_generated, queries_executed, total_tokens, successful_queries, failed_queries)
+    VALUES (
+        p_admin_id, 
+        CURDATE(), 
+        1, 
+        IF(p_executed = 1, 1, 0),
+        p_tokens,
+        IF(p_success = 1, 1, 0),
+        IF(p_success = 0 AND p_executed = 1, 1, 0)
+    )
+    ON DUPLICATE KEY UPDATE
+        queries_generated = queries_generated + 1,
+        queries_executed = queries_executed + IF(p_executed = 1, 1, 0),
+        total_tokens = total_tokens + p_tokens,
+        successful_queries = successful_queries + IF(p_success = 1, 1, 0),
+        failed_queries = failed_queries + IF(p_success = 0 AND p_executed = 1, 1, 0),
+        updated_at = CURRENT_TIMESTAMP;
+END$$
+
 --
 -- Functions
 --
@@ -344,43 +395,6 @@ CREATE DEFINER=`root`@`localhost` FUNCTION `CalculateDynamicPrice` (`p_base_pric
     RETURN v_final_price;
 END$$
 
-CREATE DEFINER=`root`@`localhost` FUNCTION `CalculateGuestSatisfactionScore` (`p_hotel_id` INT) RETURNS DECIMAL(5,2) READS SQL DATA BEGIN
-    DECLARE v_avg_rating DECIMAL(3,2);
-    DECLARE v_total_reviews INT;
-    DECLARE v_response_rate DECIMAL(5,2);
-    DECLARE v_satisfaction_score DECIMAL(5,2);
-    
-    -- Get average rating and review count
-    SELECT 
-        COALESCE(AVG(rating), 0),
-        COUNT(*)
-    INTO v_avg_rating, v_total_reviews
-    FROM reviews
-    WHERE hotel_id = p_hotel_id
-    AND is_approved = 1;
-    
-    -- Calculate response rate
-    SELECT 
-        CASE 
-            WHEN COUNT(*) > 0 THEN 
-                (COUNT(CASE WHEN admin_response IS NOT NULL THEN 1 END) / COUNT(*)) * 100
-            ELSE 0 
-        END
-    INTO v_response_rate
-    FROM reviews
-    WHERE hotel_id = p_hotel_id
-    AND is_approved = 1;
-    
-    -- Calculate satisfaction score
-    SET v_satisfaction_score = (
-        (v_avg_rating / 5.0) * 70 +
-        (LEAST(v_total_reviews, 100) / 100) * 20 +
-        (v_response_rate / 100) * 10
-    );
-    
-    RETURN ROUND(v_satisfaction_score, 2);
-END$$
-
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetSeason` (`p_date` DATE) RETURNS VARCHAR(20) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci DETERMINISTIC BEGIN
     DECLARE v_month INT;
     DECLARE v_day INT;
@@ -431,9 +445,81 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`admin_id`, `username`, `password`, `email`, `full_name`, `role`, `last_login`, `created_at`, `is_active`) VALUES
-(1, 'admin', '1234', 'admin@smartstay.com', 'System Administrator', 'Super Admin', NULL, '2025-10-03 15:48:43', 1),
-(2, 'manager', '1234', 'manager@smartstay.com', 'Hotel Manager', 'Manager', NULL, '2025-10-03 15:48:43', 1),
-(3, 'support', '1234', 'support@smartstay.com', 'Support Admin', 'Admin', NULL, '2025-10-03 15:48:43', 1);
+(1, 'admin', '1234', 'admin@smartstay.com', 'System Administrator', 'Super Admin', NULL, '2025-10-03 16:16:55', 1),
+(2, 'manager', '1234', 'manager@smartstay.com', 'Hotel Manager', 'Manager', NULL, '2025-10-03 16:16:55', 1),
+(3, 'support', '1234', 'support@smartstay.com', 'Support Admin', 'Admin', NULL, '2025-10-03 16:16:55', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ai_query_favorites`
+--
+
+CREATE TABLE `ai_query_favorites` (
+  `favorite_id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `favorite_name` varchar(100) NOT NULL COMMENT 'User-defined name for the query',
+  `natural_query` text DEFAULT NULL COMMENT 'Original natural language query',
+  `sql_query` text NOT NULL COMMENT 'The SQL query',
+  `description` text DEFAULT NULL COMMENT 'User notes about the query',
+  `category` varchar(50) DEFAULT 'General' COMMENT 'User-defined category',
+  `use_count` int(11) DEFAULT 0 COMMENT 'Number of times executed',
+  `last_used` timestamp NULL DEFAULT NULL COMMENT 'Last execution timestamp',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User-saved favorite queries';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ai_query_history`
+--
+
+CREATE TABLE `ai_query_history` (
+  `history_id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `natural_query` text NOT NULL COMMENT 'User natural language input',
+  `generated_sql` text NOT NULL COMMENT 'AI-generated SQL query',
+  `explanation` text DEFAULT NULL COMMENT 'AI explanation of the query',
+  `execution_status` enum('Success','Failed','Not Executed') DEFAULT 'Not Executed',
+  `execution_time_ms` int(11) DEFAULT NULL COMMENT 'Query execution time in milliseconds',
+  `rows_returned` int(11) DEFAULT NULL COMMENT 'Number of rows returned',
+  `error_message` text DEFAULT NULL COMMENT 'Error message if execution failed',
+  `tokens_used` int(11) DEFAULT NULL COMMENT 'OpenAI tokens consumed',
+  `is_favorite` tinyint(4) DEFAULT 0 COMMENT '1=favorited, 0=normal',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Stores AI query generation history';
+
+--
+-- Dumping data for table `ai_query_history`
+--
+
+INSERT INTO `ai_query_history` (`history_id`, `admin_id`, `natural_query`, `generated_sql`, `explanation`, `execution_status`, `execution_time_ms`, `rows_returned`, `error_message`, `tokens_used`, `is_favorite`, `created_at`) VALUES
+(1, 1, 'Which rooms are available today?', 'SELECT r.room_id, r.room_number, r.type_id, r.floor_number, r.price, r.area_sqft, r.max_occupancy\nFROM rooms r\nWHERE r.is_active = 1 AND r.room_id NOT IN (\n  SELECT b.room_id\n  FROM bookings b\n  WHERE b.check_in <= CURDATE() AND b.check_out >= CURDATE()\n)', 'This query selects all active rooms from the rooms table that do not have a booking for the current date, indicating they are available today.', 'Not Executed', NULL, NULL, NULL, 2552, 0, '2025-10-22 16:20:50'),
+(2, 1, 'show all the hotels', 'SELECT h.hotel_id, h.hotel_name, h.address, h.city, h.star_rating\nFROM hotels h\nWHERE h.is_active = 1\nORDER BY h.hotel_name', 'This query selects all active hotels from the hotels table, ordered alphabetically by hotel name.', 'Not Executed', NULL, NULL, NULL, 2502, 0, '2025-10-22 17:57:06'),
+(3, 1, 'show upcoming events', 'SELECT e.event_id, e.event_name, e.event_date, e.start_time, e.end_time, e.venue, e.max_participants, e.current_participants, e.price\nFROM events e\nWHERE e.event_status = \'Upcoming\'\nORDER BY e.event_date', 'This query selects all upcoming events from the events table, ordered by event date. It uses the event_status column to filter for \'Upcoming\' events.', 'Not Executed', NULL, NULL, NULL, 2532, 0, '2025-10-22 18:01:51'),
+(4, 1, 'show me all the hotels', 'SELECT h.hotel_id, h.hotel_name, h.address, h.city, h.state, h.country, h.star_rating\nFROM hotels h\nWHERE h.is_active = 1\nORDER BY h.hotel_name', 'This query selects all active hotels from the hotels table, ordered alphabetically by hotel name. It uses the \'is_active\' column to filter out inactive hotels.', 'Not Executed', NULL, NULL, NULL, 2523, 0, '2025-10-22 18:02:56'),
+(5, 1, 'show me upcoming events', 'SELECT e.event_id, e.event_name, e.event_date, e.start_time, e.end_time, e.venue, e.price\nFROM events e\nWHERE e.event_status = \'Upcoming\'\nORDER BY e.event_date', 'This query selects all upcoming events from the events table, ordered by event date. It uses the event_status column to filter for \'Upcoming\' events.', 'Not Executed', NULL, NULL, NULL, 2523, 0, '2025-10-22 18:03:11'),
+(6, 1, 'show mw all the event', 'SELECT e.event_id, e.event_name, e.description, e.event_date, e.start_time, e.end_time, e.venue, e.max_participants, e.current_participants, e.price, e.event_type, e.event_status\nFROM events e\nWHERE e.event_status IN (\'Upcoming\', \'Active\')\nORDER BY e.event_date', 'This query selects all upcoming and active events from the events table, ordered by event date, including event details such as name, description, date, time, venue, and type.', 'Not Executed', NULL, NULL, NULL, 2554, 0, '2025-10-23 15:16:06');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ai_usage_stats`
+--
+
+CREATE TABLE `ai_usage_stats` (
+  `stat_id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `usage_date` date NOT NULL,
+  `queries_generated` int(11) DEFAULT 0 COMMENT 'Number of queries generated',
+  `queries_executed` int(11) DEFAULT 0 COMMENT 'Number of queries executed',
+  `total_tokens` int(11) DEFAULT 0 COMMENT 'Total OpenAI tokens used',
+  `successful_queries` int(11) DEFAULT 0 COMMENT 'Successful executions',
+  `failed_queries` int(11) DEFAULT 0 COMMENT 'Failed executions',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Daily AI usage statistics per admin';
 
 -- --------------------------------------------------------
 
@@ -467,10 +553,16 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`booking_id`, `guest_id`, `room_id`, `check_in`, `check_out`, `adults`, `children`, `total_amount`, `discount_amount`, `tax_amount`, `final_amount`, `booking_status`, `payment_status`, `booking_source`, `special_requests`, `cancellation_reason`, `created_at`, `updated_at`) VALUES
-(8, 1, 1, '2025-10-15', '2025-10-18', 2, 0, 450.00, 0.00, 81.00, 531.00, 'Confirmed', 'Paid', 'Website', 'Late check-in requested', NULL, '2025-10-10 08:22:00', '2025-10-03 15:48:43'),
-(10, 2, 3, '2025-10-20', '2025-10-25', 2, 0, 1750.00, 0.00, 315.00, 2065.00, 'Confirmed', 'Paid', 'Website', 'Extra pillows please', NULL, '2025-10-18 05:15:00', '2025-10-03 15:48:43'),
-(13, 5, 2, '2025-11-01', '2025-11-05', 2, 0, 880.00, 0.00, 158.40, 1038.40, 'Confirmed', 'Pending', 'Website', 'Non-smoking room', NULL, '2025-10-28 08:00:00', '2025-10-03 15:48:43'),
-(16, 2, 8, '2025-10-05', '2025-10-08', 2, 0, 1260.00, 0.00, 226.80, 1486.80, 'Confirmed', 'Paid', 'Website', NULL, NULL, '2025-10-02 05:00:00', '2025-10-03 15:48:43');
+(1, 1, 1, '2025-10-15', '2025-10-18', 2, 0, 450.00, 0.00, 81.00, 531.00, 'Confirmed', 'Paid', 'Website', 'Late check-in requested', NULL, '2025-10-01 08:22:00', '2025-10-03 16:16:56'),
+(2, 1, 23, '2025-11-20', '2025-11-27', 2, 0, 2240.00, 0.00, 403.20, 2643.20, 'Confirmed', 'Paid', 'Website', 'Holiday booking', NULL, '2025-11-15 04:30:00', '2025-10-03 16:16:56'),
+(3, 2, 3, '2025-10-20', '2025-10-25', 2, 0, 1750.00, 0.00, 315.00, 2065.00, 'Confirmed', 'Paid', 'Website', 'Extra pillows please', NULL, '2025-10-02 05:15:00', '2025-10-03 16:16:56'),
+(4, 3, 12, '2025-09-01', '2025-09-05', 2, 0, 1000.00, 0.00, 180.00, 1180.00, 'Completed', 'Paid', 'Website', NULL, NULL, '2025-08-28 03:00:00', '2025-10-03 16:16:56'),
+(5, 4, 21, '2025-10-10', '2025-10-12', 2, 0, 280.00, 0.00, 50.40, 330.40, 'Confirmed', 'Pending', 'Website', 'Early check-in if possible', NULL, '2025-10-03 10:30:00', '2025-10-03 16:16:56'),
+(6, 5, 2, '2025-11-01', '2025-11-05', 2, 0, 880.00, 0.00, 158.40, 1038.40, 'Confirmed', 'Pending', 'Website', 'Non-smoking room', NULL, '2025-10-28 08:00:00', '2025-10-03 16:16:56'),
+(7, 7, 19, '2025-08-15', '2025-08-20', 2, 0, 2250.00, 150.00, 378.00, 2478.00, 'Completed', 'Paid', 'Website', 'Anniversary celebration', NULL, '2025-08-10 04:45:00', '2025-10-03 16:16:56'),
+(8, 9, 13, '2025-10-25', '2025-10-30', 2, 0, 2000.00, 0.00, 360.00, 2360.00, 'Confirmed', 'Paid', 'Website', 'Ocean view preferred', NULL, '2025-10-04 07:20:00', '2025-10-03 16:16:56'),
+(9, 2, 8, '2025-12-05', '2025-12-08', 2, 0, 1260.00, 0.00, 226.80, 1486.80, 'Confirmed', 'Paid', 'Website', NULL, NULL, '2025-12-01 05:00:00', '2025-10-03 16:16:56'),
+(10, 10, 14, '2025-09-10', '2025-09-15', 2, 0, 900.00, 50.00, 153.00, 1003.00, 'Completed', 'Paid', 'Website', 'Honeymoon package', NULL, '2025-09-05 09:30:00', '2025-10-03 16:16:56');
 
 --
 -- Triggers `bookings`
@@ -601,51 +693,51 @@ CREATE TABLE `events` (
 --
 
 INSERT INTO `events` (`event_id`, `hotel_id`, `event_name`, `description`, `event_date`, `start_time`, `end_time`, `venue`, `max_participants`, `current_participants`, `price`, `event_type`, `event_status`, `organizer_name`, `organizer_contact`, `requirements`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Business Leadership Summit', 'Annual conference for business leaders', '2025-03-15', '09:00:00', '17:00:00', 'Grand Ballroom', 200, 0, 450.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(2, 1, 'Summer Jazz Night', 'Live jazz performance with dinner', '2025-06-20', '19:00:00', '23:00:00', 'Rooftop Terrace', 150, 0, 120.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(3, 1, 'Wedding Reception', 'Elegant wedding celebration', '2025-04-10', '18:00:00', '23:30:00', 'Crystal Ballroom', 250, 0, 200.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(4, 1, 'Tech Innovation Workshop', 'Latest trends in technology', '2025-05-05', '10:00:00', '16:00:00', 'Conference Room A', 80, 0, 350.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(5, 1, 'New Year Gala', 'Celebrate new year in style', '2025-12-31', '20:00:00', '02:00:00', 'Grand Ballroom', 300, 0, 180.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(6, 2, 'Beach Yoga Retreat', 'Weekend wellness and yoga', '2025-03-22', '07:00:00', '18:00:00', 'Beach Pavilion', 50, 0, 280.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(7, 2, 'Seafood Festival', 'Culinary experience by the ocean', '2025-07-15', '12:00:00', '22:00:00', 'Ocean View Restaurant', 120, 0, 95.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(8, 2, 'Corporate Team Building', 'Beach activities for teams', '2025-04-18', '09:00:00', '17:00:00', 'Beach Activities Center', 60, 0, 420.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(9, 2, 'Sunset Wedding Ceremony', 'Romantic beachside wedding', '2025-05-30', '17:00:00', '22:00:00', 'Beach Garden', 180, 0, 250.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(10, 2, 'Summer Pool Party', 'DJ and poolside entertainment', '2025-08-12', '14:00:00', '20:00:00', 'Resort Pool', 200, 0, 75.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(11, 3, 'Mountain Photography Workshop', 'Capture stunning landscapes', '2025-04-08', '06:00:00', '18:00:00', 'Mountain Trail', 30, 0, 320.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(12, 3, 'Ski Competition', 'Annual skiing championship', '2025-02-20', '08:00:00', '16:00:00', 'Ski Slopes', 100, 0, 180.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(13, 3, 'Winter Wonderland Gala', 'Festive celebration', '2025-12-20', '18:00:00', '23:00:00', 'Mountain View Hall', 150, 0, 160.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(14, 3, 'Hiking Adventure Weekend', 'Guided mountain hikes', '2025-06-01', '07:00:00', '19:00:00', 'Trail Center', 40, 0, 250.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(15, 3, 'Mountain Lodge Wedding', 'Rustic mountain wedding', '2025-09-15', '15:00:00', '22:00:00', 'Lodge Hall', 120, 0, 280.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(16, 4, 'Art Gallery Opening', 'Contemporary art exhibition', '2025-03-10', '18:00:00', '22:00:00', 'Gallery Space', 100, 0, 65.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(17, 4, 'Fashion Show Extravaganza', 'Latest fashion trends', '2025-05-25', '19:00:00', '22:30:00', 'Runway Hall', 200, 0, 150.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(18, 4, 'Marketing Strategy Conference', 'Digital marketing insights', '2025-04-12', '09:00:00', '17:00:00', 'Conference Hall', 150, 0, 380.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(19, 4, 'Rooftop Cocktail Mixer', 'Networking event', '2025-06-08', '18:00:00', '21:00:00', 'Rooftop Bar', 80, 0, 95.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(20, 4, 'Boutique Wedding Reception', 'Intimate wedding celebration', '2025-07-22', '17:00:00', '23:00:00', 'Boutique Ballroom', 100, 0, 220.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(21, 5, 'Historical Tea Party', 'Victorian-era themed tea', '2025-04-20', '14:00:00', '17:00:00', 'Tea Room', 60, 0, 85.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(22, 5, 'Book Club Literary Evening', 'Author meet and greet', '2025-05-15', '18:00:00', '21:00:00', 'Library', 40, 0, 55.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(23, 5, 'Classic Music Recital', 'Piano and violin performance', '2025-06-10', '19:00:00', '21:30:00', 'Music Hall', 90, 0, 75.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(24, 5, 'Heritage Wedding', 'Traditional wedding ceremony', '2025-08-05', '16:00:00', '22:00:00', 'Heritage Garden', 150, 0, 240.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(25, 5, 'Historical Architecture Tour', 'Guided building tour', '2025-03-28', '10:00:00', '14:00:00', 'Main Building', 25, 0, 45.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(26, 6, 'Business Breakfast Meeting', 'Networking breakfast', '2025-03-18', '07:30:00', '09:30:00', 'Conference Room', 40, 0, 65.00, 'Meeting', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(27, 6, 'Express Training Workshop', 'Productivity and time management', '2025-04-25', '09:00:00', '13:00:00', 'Training Room', 30, 0, 180.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(28, 6, 'City Business Mixer', 'Professional networking', '2025-05-20', '17:00:00', '20:00:00', 'Coffee Lounge', 50, 0, 45.00, 'Meeting', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(29, 6, 'Small Wedding Ceremony', 'Intimate wedding event', '2025-07-15', '15:00:00', '20:00:00', 'Event Space', 60, 0, 150.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(30, 6, 'Holiday Party', 'End of year celebration', '2025-12-15', '18:00:00', '22:00:00', 'Main Hall', 80, 0, 85.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(31, 7, 'Luxury Wine Tasting', 'Premium wines with harbor views', '2025-04-05', '18:00:00', '21:00:00', 'Penthouse Lounge', 40, 0, 180.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(32, 7, 'Executive Leadership Retreat', 'C-suite strategy session', '2025-05-12', '08:00:00', '18:00:00', 'Executive Suite', 25, 0, 850.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(33, 7, 'Harbor View Wedding', 'Luxury waterfront wedding', '2025-06-28', '16:00:00', '23:00:00', 'Harbor Ballroom', 200, 0, 380.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(34, 7, 'Gourmet Culinary Workshop', 'Chef-led cooking class', '2025-07-10', '15:00:00', '19:00:00', 'Gourmet Kitchen', 20, 0, 280.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(35, 7, 'New Year Harbor Celebration', 'Fireworks and champagne', '2025-12-31', '21:00:00', '01:00:00', 'Harbor Deck', 150, 0, 250.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(36, 8, 'Forest Meditation Retreat', 'Mindfulness in nature', '2025-03-25', '08:00:00', '17:00:00', 'Forest Pavilion', 30, 0, 220.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(37, 8, 'Wildlife Photography Tour', 'Capture forest wildlife', '2025-05-18', '06:00:00', '18:00:00', 'Nature Trail', 15, 0, 340.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(38, 8, 'Organic Farm-to-Table Dinner', 'Sustainable dining experience', '2025-06-22', '18:00:00', '22:00:00', 'Forest Restaurant', 50, 0, 160.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(39, 8, 'Nature Wedding Ceremony', 'Eco-friendly forest wedding', '2025-08-20', '15:00:00', '21:00:00', 'Forest Garden', 80, 0, 290.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(40, 8, 'Autumn Harvest Festival', 'Seasonal celebration', '2025-10-15', '12:00:00', '20:00:00', 'Main Lodge', 100, 0, 95.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(41, 9, 'Contemporary Art Exhibition', 'Modern art showcase', '2025-03-30', '17:00:00', '21:00:00', 'Art Gallery', 120, 0, 75.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(42, 9, 'Creative Industries Summit', 'Design and innovation conference', '2025-04-28', '09:00:00', '18:00:00', 'Conference Center', 180, 0, 420.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(43, 9, 'Artistic Wedding Celebration', 'Creative themed wedding', '2025-06-15', '17:00:00', '23:00:00', 'Gallery Ballroom', 150, 0, 320.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(44, 9, 'Jazz and Art Evening', 'Live music and art viewing', '2025-07-25', '19:00:00', '23:00:00', 'Rooftop Gallery', 100, 0, 110.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(45, 9, 'Photography Workshop', 'Urban photography techniques', '2025-05-08', '10:00:00', '16:00:00', 'Studio Space', 25, 0, 260.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43');
+(1, 1, 'Business Leadership Summit', 'Annual conference for business leaders', '2025-03-15', '09:00:00', '17:00:00', 'Grand Ballroom', 200, 2, 450.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(2, 1, 'Summer Jazz Night', 'Live jazz performance with dinner', '2025-06-20', '19:00:00', '23:00:00', 'Rooftop Terrace', 150, 1, 120.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(3, 1, 'Wedding Reception', 'Elegant wedding celebration', '2025-04-10', '18:00:00', '23:30:00', 'Crystal Ballroom', 250, 0, 200.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(4, 1, 'Tech Innovation Workshop', 'Latest trends in technology', '2025-05-05', '10:00:00', '16:00:00', 'Conference Room A', 80, 1, 350.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(5, 1, 'New Year Gala', 'Celebrate new year in style', '2025-12-31', '20:00:00', '02:00:00', 'Grand Ballroom', 300, 2, 180.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(6, 2, 'Beach Yoga Retreat', 'Weekend wellness and yoga', '2025-03-22', '07:00:00', '18:00:00', 'Beach Pavilion', 50, 0, 280.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(7, 2, 'Seafood Festival', 'Culinary experience by the ocean', '2025-07-15', '12:00:00', '22:00:00', 'Ocean View Restaurant', 120, 0, 95.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(8, 2, 'Corporate Team Building', 'Beach activities for teams', '2025-04-18', '09:00:00', '17:00:00', 'Beach Activities Center', 60, 0, 420.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(9, 2, 'Sunset Wedding Ceremony', 'Romantic beachside wedding', '2025-05-30', '17:00:00', '22:00:00', 'Beach Garden', 180, 0, 250.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(10, 2, 'Summer Pool Party', 'DJ and poolside entertainment', '2025-08-12', '14:00:00', '20:00:00', 'Resort Pool', 200, 0, 75.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(11, 3, 'Mountain Photography Workshop', 'Capture stunning landscapes', '2025-04-08', '06:00:00', '18:00:00', 'Mountain Trail', 30, 0, 320.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(12, 3, 'Ski Competition', 'Annual skiing championship', '2025-02-20', '08:00:00', '16:00:00', 'Ski Slopes', 100, 0, 180.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(13, 3, 'Winter Wonderland Gala', 'Festive celebration', '2025-12-20', '18:00:00', '23:00:00', 'Mountain View Hall', 150, 0, 160.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(14, 3, 'Hiking Adventure Weekend', 'Guided mountain hikes', '2025-06-01', '07:00:00', '19:00:00', 'Trail Center', 40, 0, 250.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(15, 3, 'Mountain Lodge Wedding', 'Rustic mountain wedding', '2025-09-15', '15:00:00', '22:00:00', 'Lodge Hall', 120, 0, 280.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(16, 4, 'Art Gallery Opening', 'Contemporary art exhibition', '2025-03-10', '18:00:00', '22:00:00', 'Gallery Space', 100, 0, 65.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(17, 4, 'Fashion Show Extravaganza', 'Latest fashion trends', '2025-05-25', '19:00:00', '22:30:00', 'Runway Hall', 200, 0, 150.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(18, 4, 'Marketing Strategy Conference', 'Digital marketing insights', '2025-04-12', '09:00:00', '17:00:00', 'Conference Hall', 150, 0, 380.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(19, 4, 'Rooftop Cocktail Mixer', 'Networking event', '2025-06-08', '18:00:00', '21:00:00', 'Rooftop Bar', 80, 0, 95.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(20, 4, 'Boutique Wedding Reception', 'Intimate wedding celebration', '2025-07-22', '17:00:00', '23:00:00', 'Boutique Ballroom', 100, 0, 220.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(21, 5, 'Historical Tea Party', 'Victorian-era themed tea', '2025-04-20', '14:00:00', '17:00:00', 'Tea Room', 60, 0, 85.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(22, 5, 'Book Club Literary Evening', 'Author meet and greet', '2025-05-15', '18:00:00', '21:00:00', 'Library', 40, 0, 55.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(23, 5, 'Classic Music Recital', 'Piano and violin performance', '2025-06-10', '19:00:00', '21:30:00', 'Music Hall', 90, 0, 75.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(24, 5, 'Heritage Wedding', 'Traditional wedding ceremony', '2025-08-05', '16:00:00', '22:00:00', 'Heritage Garden', 150, 0, 240.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(25, 5, 'Historical Architecture Tour', 'Guided building tour', '2025-03-28', '10:00:00', '14:00:00', 'Main Building', 25, 0, 45.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(26, 6, 'Business Breakfast Meeting', 'Networking breakfast', '2025-03-18', '07:30:00', '09:30:00', 'Conference Room', 40, 0, 65.00, 'Meeting', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(27, 6, 'Express Training Workshop', 'Productivity and time management', '2025-04-25', '09:00:00', '13:00:00', 'Training Room', 30, 0, 180.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(28, 6, 'City Business Mixer', 'Professional networking', '2025-05-20', '17:00:00', '20:00:00', 'Coffee Lounge', 50, 0, 45.00, 'Meeting', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(29, 6, 'Small Wedding Ceremony', 'Intimate wedding event', '2025-07-15', '15:00:00', '20:00:00', 'Event Space', 60, 0, 150.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(30, 6, 'Holiday Party', 'End of year celebration', '2025-12-15', '18:00:00', '22:00:00', 'Main Hall', 80, 0, 85.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(31, 7, 'Luxury Wine Tasting', 'Premium wines with harbor views', '2025-04-05', '18:00:00', '21:00:00', 'Penthouse Lounge', 40, 0, 180.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(32, 7, 'Executive Leadership Retreat', 'C-suite strategy session', '2025-05-12', '08:00:00', '18:00:00', 'Executive Suite', 25, 0, 850.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(33, 7, 'Harbor View Wedding', 'Luxury waterfront wedding', '2025-06-28', '16:00:00', '23:00:00', 'Harbor Ballroom', 200, 0, 380.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(34, 7, 'Gourmet Culinary Workshop', 'Chef-led cooking class', '2025-07-10', '15:00:00', '19:00:00', 'Gourmet Kitchen', 20, 0, 280.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(35, 7, 'New Year Harbor Celebration', 'Fireworks and champagne', '2025-12-31', '21:00:00', '01:00:00', 'Harbor Deck', 150, 0, 250.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(36, 8, 'Forest Meditation Retreat', 'Mindfulness in nature', '2025-03-25', '08:00:00', '17:00:00', 'Forest Pavilion', 30, 0, 220.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(37, 8, 'Wildlife Photography Tour', 'Capture forest wildlife', '2025-05-18', '06:00:00', '18:00:00', 'Nature Trail', 15, 0, 340.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(38, 8, 'Organic Farm-to-Table Dinner', 'Sustainable dining experience', '2025-06-22', '18:00:00', '22:00:00', 'Forest Restaurant', 50, 0, 160.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(39, 8, 'Nature Wedding Ceremony', 'Eco-friendly forest wedding', '2025-08-20', '15:00:00', '21:00:00', 'Forest Garden', 80, 0, 290.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(40, 8, 'Autumn Harvest Festival', 'Seasonal celebration', '2025-10-15', '12:00:00', '20:00:00', 'Main Lodge', 100, 0, 95.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(41, 9, 'Contemporary Art Exhibition', 'Modern art showcase', '2025-03-30', '17:00:00', '21:00:00', 'Art Gallery', 120, 0, 75.00, 'Other', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(42, 9, 'Creative Industries Summit', 'Design and innovation conference', '2025-04-28', '09:00:00', '18:00:00', 'Conference Center', 180, 0, 420.00, 'Conference', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(43, 9, 'Artistic Wedding Celebration', 'Creative themed wedding', '2025-06-15', '17:00:00', '23:00:00', 'Gallery Ballroom', 150, 0, 320.00, 'Wedding', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(44, 9, 'Jazz and Art Evening', 'Live music and art viewing', '2025-07-25', '19:00:00', '23:00:00', 'Rooftop Gallery', 100, 0, 110.00, 'Party', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(45, 9, 'Photography Workshop', 'Urban photography techniques', '2025-05-08', '10:00:00', '16:00:00', 'Studio Space', 25, 0, 260.00, 'Workshop', 'Upcoming', NULL, NULL, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56');
 
 -- --------------------------------------------------------
 
@@ -664,6 +756,16 @@ CREATE TABLE `event_bookings` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `event_bookings`
+--
+
+INSERT INTO `event_bookings` (`event_booking_id`, `event_id`, `guest_id`, `participants`, `amount_paid`, `booking_status`, `special_requirements`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 2, 300.00, 'Confirmed', NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(2, 2, 2, 1, 25.00, 'Confirmed', NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(3, 4, 7, 1, 200.00, 'Confirmed', NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(4, 5, 9, 2, 170.00, 'Confirmed', NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56');
 
 --
 -- Triggers `event_bookings`
@@ -727,16 +829,16 @@ CREATE TABLE `guests` (
 --
 
 INSERT INTO `guests` (`guest_id`, `name`, `email`, `password`, `phone`, `date_of_birth`, `gender`, `nationality`, `address`, `loyalty_points`, `membership_level`, `created_at`, `updated_at`, `is_active`) VALUES
-(1, 'John Smith', 'john.smith@email.com', '1234', '+1-555-0101', '1985-03-15', 'Male', 'USA', NULL, 2500, 'Gold', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(2, 'Emma Johnson', 'emma.j@email.com', '1234', '+1-555-0102', '1990-07-22', 'Female', 'USA', NULL, 5200, 'Platinum', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(3, 'Michael Chen', 'mchen@email.com', '1234', '+1-555-0103', '1988-11-10', 'Male', 'China', NULL, 850, 'Silver', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(4, 'Sarah Williams', 'swilliams@email.com', '1234', '+1-555-0104', '1992-05-18', 'Female', 'UK', NULL, 350, 'Bronze', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(5, 'David Martinez', 'dmartinez@email.com', '1234', '+1-555-0105', '1987-09-30', 'Male', 'Spain', NULL, 1200, 'Silver', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(6, 'Lisa Anderson', 'landerson@email.com', '1234', '+1-555-0106', '1995-01-25', 'Female', 'Canada', NULL, 180, 'Bronze', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(7, 'Robert Taylor', 'rtaylor@email.com', '1234', '+1-555-0107', '1983-12-05', 'Male', 'USA', NULL, 6500, 'Platinum', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(8, 'Jennifer Lee', 'jlee@email.com', '1234', '+1-555-0108', '1991-08-14', 'Female', 'South Korea', NULL, 420, 'Bronze', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(9, 'James Brown', 'jbrown@email.com', '1234', '+1-555-0109', '1989-04-20', 'Male', 'Australia', NULL, 3100, 'Gold', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(10, 'Maria Garcia', 'mgarcia@email.com', '1234', '+1-555-0110', '1994-06-08', 'Female', 'Mexico', NULL, 750, 'Silver', '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1);
+(1, 'John Smith', 'john.smith@email.com', '1234', '+1-555-0101', '1985-03-15', 'Male', 'USA', NULL, 2500, 'Gold', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(2, 'Emma Johnson', 'emma.j@email.com', '1234', '+1-555-0102', '1990-07-22', 'Female', 'USA', NULL, 5200, 'Platinum', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(3, 'Michael Chen', 'mchen@email.com', '1234', '+1-555-0103', '1988-11-10', 'Male', 'China', NULL, 850, 'Silver', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(4, 'Sarah Williams', 'swilliams@email.com', '1234', '+1-555-0104', '1992-05-18', 'Female', 'UK', NULL, 350, 'Bronze', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(5, 'David Martinez', 'dmartinez@email.com', '1234', '+1-555-0105', '1987-09-30', 'Male', 'Spain', NULL, 1200, 'Silver', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(6, 'Lisa Anderson', 'landerson@email.com', '1234', '+1-555-0106', '1995-01-25', 'Female', 'Canada', NULL, 180, 'Bronze', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(7, 'Robert Taylor', 'rtaylor@email.com', '1234', '+1-555-0107', '1983-12-05', 'Male', 'USA', NULL, 6500, 'Platinum', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(8, 'Jennifer Lee', 'jlee@email.com', '1234', '+1-555-0108', '1991-08-14', 'Female', 'South Korea', NULL, 420, 'Bronze', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(9, 'James Brown', 'jbrown@email.com', '1234', '+1-555-0109', '1989-04-20', 'Male', 'Australia', NULL, 3100, 'Gold', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(10, 'Maria Garcia', 'mgarcia@email.com', '1234', '+1-555-0110', '1994-06-08', 'Female', 'Mexico', NULL, 750, 'Silver', '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1);
 
 -- --------------------------------------------------------
 
@@ -773,15 +875,15 @@ CREATE TABLE `hotels` (
 --
 
 INSERT INTO `hotels` (`hotel_id`, `hotel_name`, `email`, `password`, `description`, `address`, `city`, `state`, `country`, `postal_code`, `phone`, `star_rating`, `total_rooms`, `amenities`, `check_in_time`, `check_out_time`, `established_year`, `license_number`, `created_at`, `updated_at`, `is_active`) VALUES
-(1, 'Grand Plaza Hotel', 'contact@grandplaza.com', '1234', 'Luxury hotel in downtown', '123 Main St', 'New York', 'NY', 'USA', '10001', '+1-212-555-0100', 5.0, 10, '[\"Pool\", \"Spa\", \"Gym\", \"Restaurant\", \"Bar\", \"Conference Rooms\"]', '14:00:00', '11:00:00', 1990, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(2, 'Seaside Resort', 'info@seasideresort.com', '1234', 'Beautiful beachfront resort', '456 Ocean Blvd', 'Miami', 'FL', 'USA', '33139', '+1-305-555-0200', 4.5, 10, '[\"Beach Access\", \"Pool\", \"Water Sports\", \"Restaurant\", \"Spa\"]', '14:00:00', '11:00:00', 1995, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(3, 'Mountain View Lodge', 'reservations@mountainview.com', '1234', 'Cozy mountain retreat', '789 Summit Rd', 'Denver', 'CO', 'USA', '80202', '+1-303-555-0300', 4.0, 10, '[\"Skiing\", \"Hiking\", \"Restaurant\", \"Fireplace\", \"Spa\"]', '14:00:00', '11:00:00', 2000, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(4, 'Urban Boutique Hotel', 'hello@urbanboutique.com', '1234', 'Modern boutique hotel', '321 Fashion Ave', 'Los Angeles', 'CA', 'USA', '90028', '+1-213-555-0400', 4.5, 10, '[\"Rooftop Bar\", \"Pool\", \"Gym\", \"Restaurant\", \"Art Gallery\"]', '14:00:00', '11:00:00', 2010, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(5, 'Historic Inn', 'bookings@historicinn.com', '1234', 'Charming historic property', '567 Heritage Ln', 'Boston', 'MA', 'USA', '02108', '+1-617-555-0500', 4.0, 10, '[\"Library\", \"Garden\", \"Restaurant\", \"Tea Room\"]', '14:00:00', '11:00:00', 1885, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(6, 'City Center Express', 'info@citycenterexpress.com', '1234', 'Convenient city center location', '100 Business Plaza', 'Chicago', 'IL', 'USA', '60601', '+1-312-555-0600', 3.5, 10, '[\"WiFi\", \"Business Center\", \"Coffee Shop\", \"Parking\"]', '14:00:00', '11:00:00', 2015, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(7, 'Harborfront Luxury Suites', 'stay@harborfront.com', '1234', 'Luxury suites with harbor views', '200 Marina Way', 'Seattle', 'WA', 'USA', '98101', '+1-206-555-0700', 5.0, 10, '[\"Harbor View\", \"Spa\", \"Fine Dining\", \"Concierge\", \"Valet\"]', '14:00:00', '11:00:00', 2018, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(8, 'Forest Retreat Villas', 'welcome@forestretreat.com', '1234', 'Peaceful forest getaway', '300 Woodland Path', 'Portland', 'OR', 'USA', '97201', '+1-503-555-0800', 4.5, 10, '[\"Nature Trails\", \"Yoga\", \"Organic Restaurant\", \"Spa\", \"Wildlife Tours\"]', '14:00:00', '11:00:00', 2020, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1),
-(9, 'Metropolitan Art Hotel', 'contact@metroarthotel.com', '1234', 'Contemporary art-themed hotel', '400 Gallery Street', 'San Francisco', 'CA', 'USA', '94102', '+1-415-555-0900', 4.5, 10, '[\"Art Exhibitions\", \"Rooftop Bar\", \"Restaurant\", \"Gym\", \"Library\"]', '14:00:00', '11:00:00', 2017, NULL, '2025-10-03 15:48:43', '2025-10-03 15:48:43', 1);
+(1, 'Grand Plaza Hotel', 'contact@grandplaza.com', '1234', 'Luxury hotel in downtown', '123 Main St', 'New York', 'NY', 'USA', '10001', '+1-212-555-0100', 5.0, 10, '[\"Pool\", \"Spa\", \"Gym\", \"Restaurant\", \"Bar\", \"Conference Rooms\"]', '14:00:00', '11:00:00', 1990, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(2, 'Seaside Resort', 'info@seasideresort.com', '1234', 'Beautiful beachfront resort', '456 Ocean Blvd', 'Miami', 'FL', 'USA', '33139', '+1-305-555-0200', 4.5, 10, '[\"Beach Access\", \"Pool\", \"Water Sports\", \"Restaurant\", \"Spa\"]', '14:00:00', '11:00:00', 1995, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(3, 'Mountain View Lodge', 'reservations@mountainview.com', '1234', 'Cozy mountain retreat', '789 Summit Rd', 'Denver', 'CO', 'USA', '80202', '+1-303-555-0300', 4.0, 10, '[\"Skiing\", \"Hiking\", \"Restaurant\", \"Fireplace\", \"Spa\"]', '14:00:00', '11:00:00', 2000, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(4, 'Urban Boutique Hotel', 'hello@urbanboutique.com', '1234', 'Modern boutique hotel', '321 Fashion Ave', 'Los Angeles', 'CA', 'USA', '90028', '+1-213-555-0400', 4.5, 10, '[\"Rooftop Bar\", \"Pool\", \"Gym\", \"Restaurant\", \"Art Gallery\"]', '14:00:00', '11:00:00', 2010, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(5, 'Historic Inn', 'bookings@historicinn.com', '1234', 'Charming historic property', '567 Heritage Ln', 'Boston', 'MA', 'USA', '02108', '+1-617-555-0500', 4.0, 10, '[\"Library\", \"Garden\", \"Restaurant\", \"Tea Room\"]', '14:00:00', '11:00:00', 1885, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:55', 1),
+(6, 'City Center Express', 'info@citycenterexpress.com', '1234', 'Convenient city center location', '100 Business Plaza', 'Chicago', 'IL', 'USA', '60601', '+1-312-555-0600', 3.5, 10, '[\"WiFi\", \"Business Center\", \"Coffee Shop\", \"Parking\"]', '14:00:00', '11:00:00', 2015, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:56', 1),
+(7, 'Harborfront Luxury Suites', 'stay@harborfront.com', '1234', 'Luxury suites with harbor views', '200 Marina Way', 'Seattle', 'WA', 'USA', '98101', '+1-206-555-0700', 5.0, 10, '[\"Harbor View\", \"Spa\", \"Fine Dining\", \"Concierge\", \"Valet\"]', '14:00:00', '11:00:00', 2018, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:56', 1),
+(8, 'Forest Retreat Villas', 'welcome@forestretreat.com', '1234', 'Peaceful forest getaway', '300 Woodland Path', 'Portland', 'OR', 'USA', '97201', '+1-503-555-0800', 4.5, 10, '[\"Nature Trails\", \"Yoga\", \"Organic Restaurant\", \"Spa\", \"Wildlife Tours\"]', '14:00:00', '11:00:00', 2020, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:56', 1),
+(9, 'Metropolitan Art Hotel', 'contact@metroarthotel.com', '1234', 'Contemporary art-themed hotel', '400 Gallery Street', 'San Francisco', 'CA', 'USA', '94102', '+1-415-555-0900', 4.5, 10, '[\"Art Exhibitions\", \"Rooftop Bar\", \"Restaurant\", \"Gym\", \"Library\"]', '14:00:00', '11:00:00', 2017, NULL, '2025-10-03 16:16:55', '2025-10-03 16:16:56', 1);
 
 -- --------------------------------------------------------
 
@@ -824,6 +926,26 @@ CREATE TABLE `reviews` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `reviews`
+--
+
+INSERT INTO `reviews` (`review_id`, `hotel_id`, `guest_id`, `booking_id`, `rating`, `title`, `comment`, `service_rating`, `cleanliness_rating`, `location_rating`, `amenities_rating`, `is_approved`, `admin_response`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, NULL, 4.5, 'Excellent Stay', 'Great hotel with wonderful service', 4.5, 5.0, 5.0, 4.0, 1, 'Thank you for your wonderful feedback!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(2, 1, 2, NULL, 5.0, 'Perfect!', 'Everything was absolutely perfect', 5.0, 5.0, 5.0, 5.0, 1, 'We are thrilled you enjoyed your stay!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(3, 2, 3, NULL, 4.0, 'Beautiful Beach Location', 'Amazing views but service could be better', 3.5, 4.0, 5.0, 4.5, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(4, 3, 4, NULL, 4.5, 'Mountain Paradise', 'Loved the hiking trails and cozy atmosphere', 4.5, 4.5, 4.0, 4.5, 1, 'We appreciate your kind words!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(5, 1, 5, NULL, 4.8, 'Outstanding Service', 'The staff went above and beyond', 5.0, 4.5, 5.0, 4.5, 1, 'Your satisfaction means everything to us!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(6, 2, 6, NULL, 3.5, 'Good but not great', 'Room was nice but pool was crowded', 3.0, 4.0, 4.5, 3.5, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(7, 1, 7, NULL, 5.0, 'Best Hotel Ever', 'Will definitely come back!', 5.0, 5.0, 5.0, 5.0, 1, 'Looking forward to welcoming you again!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(8, 3, 8, NULL, 4.2, 'Great Mountain Getaway', 'Perfect for winter vacation', 4.0, 4.5, 4.0, 4.0, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(9, 4, 5, NULL, 5.0, 'Trendy and Modern', 'The design is stunning, great location', 5.0, 5.0, 5.0, 5.0, 1, 'Thank you for the 5-star review!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(10, 5, 6, NULL, 4.0, 'Charming Historic Property', 'Full of character and history', 4.0, 4.0, 4.5, 3.5, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(11, 6, 7, NULL, 3.5, 'Good Value', 'Simple but clean and convenient', 3.5, 4.0, 5.0, 3.0, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(12, 7, 8, NULL, 5.0, 'Luxury at its Best', 'Worth every penny, incredible service', 5.0, 5.0, 5.0, 5.0, 1, 'We are honored by your review!', '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(13, 8, 9, NULL, 4.5, 'Nature Lover\'s Dream', 'So peaceful and relaxing', 4.5, 4.5, 4.0, 4.5, 1, NULL, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(14, 9, 10, NULL, 4.5, 'Art and Comfort Combined', 'Unique experience with excellent amenities', 4.5, 4.5, 5.0, 5.0, 1, 'We appreciate your artistic eye!', '2025-10-03 16:16:56', '2025-10-03 16:16:56');
+
 -- --------------------------------------------------------
 
 --
@@ -851,96 +973,96 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`room_id`, `hotel_id`, `room_number`, `type_id`, `floor_number`, `price`, `area_sqft`, `max_occupancy`, `amenities`, `maintenance_status`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, '101', 1, 1, 150.00, 300, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(2, 1, '102', 2, 1, 220.00, 450, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(3, 1, '201', 3, 2, 350.00, 650, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(4, 1, '202', 1, 2, 150.00, 300, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(5, 1, '301', 2, 3, 220.00, 450, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(6, 1, '302', 3, 3, 350.00, 650, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(7, 1, '401', 4, 4, 280.00, 550, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(8, 1, '402', 5, 4, 420.00, 750, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(9, 1, '501', 3, 5, 380.00, 700, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(10, 1, '502', 5, 5, 450.00, 800, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(11, 2, '101', 1, 1, 180.00, 320, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(12, 2, '102', 2, 1, 250.00, 480, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(13, 2, '201', 3, 2, 400.00, 680, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(14, 2, '202', 1, 2, 180.00, 320, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(15, 2, '301', 2, 3, 250.00, 480, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(16, 2, '302', 3, 3, 400.00, 680, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(17, 2, '401', 4, 4, 320.00, 580, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(18, 2, '402', 3, 4, 420.00, 700, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(19, 2, '501', 3, 5, 450.00, 750, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(20, 2, '502', 5, 5, 520.00, 850, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(21, 3, '101', 1, 1, 140.00, 280, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(22, 3, '102', 2, 1, 210.00, 420, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(23, 3, '201', 3, 2, 320.00, 620, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(24, 3, '202', 1, 2, 140.00, 280, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(25, 3, '301', 2, 3, 210.00, 420, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(26, 3, '302', 3, 3, 320.00, 620, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(27, 3, '401', 4, 4, 270.00, 540, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(28, 3, '402', 2, 4, 220.00, 440, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(29, 3, '501', 3, 5, 350.00, 680, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(30, 3, '502', 5, 5, 410.00, 780, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(31, 4, '101', 1, 1, 190.00, 310, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(32, 4, '102', 2, 1, 270.00, 470, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(33, 4, '201', 3, 2, 410.00, 670, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(34, 4, '202', 1, 2, 190.00, 310, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(35, 4, '301', 2, 3, 270.00, 470, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(36, 4, '302', 3, 3, 410.00, 670, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(37, 4, '401', 4, 4, 340.00, 590, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(38, 4, '402', 5, 4, 480.00, 790, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(39, 4, '501', 3, 5, 440.00, 720, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(40, 4, '502', 5, 5, 510.00, 830, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(41, 5, '101', 1, 1, 130.00, 290, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(42, 5, '102', 2, 1, 200.00, 430, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(43, 5, '201', 3, 2, 310.00, 630, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(44, 5, '202', 1, 2, 130.00, 290, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(45, 5, '301', 2, 3, 200.00, 430, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(46, 5, '302', 3, 3, 310.00, 630, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(47, 5, '401', 4, 4, 260.00, 530, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(48, 5, '402', 2, 4, 210.00, 450, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(49, 5, '501', 3, 5, 340.00, 670, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(50, 5, '502', 5, 5, 400.00, 770, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(51, 6, '101', 1, 1, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(52, 6, '102', 1, 1, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(53, 6, '201', 2, 2, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(54, 6, '202', 2, 2, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(55, 6, '301', 3, 3, 280.00, 600, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(56, 6, '302', 1, 3, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(57, 6, '401', 2, 4, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(58, 6, '402', 3, 4, 280.00, 600, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(59, 6, '501', 4, 5, 240.00, 520, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(60, 6, '502', 2, 5, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(61, 7, '101', 2, 1, 280.00, 490, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(62, 7, '102', 3, 1, 420.00, 690, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(63, 7, '201', 3, 2, 450.00, 720, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(64, 7, '202', 5, 2, 530.00, 840, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(65, 7, '301', 3, 3, 450.00, 720, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(66, 7, '302', 5, 3, 530.00, 840, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(67, 7, '401', 3, 4, 480.00, 750, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(68, 7, '402', 5, 4, 560.00, 870, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(69, 7, '501', 3, 5, 520.00, 800, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(70, 7, '502', 5, 5, 600.00, 900, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(71, 8, 'V1', 4, 1, 340.00, 650, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(72, 8, 'V2', 4, 1, 340.00, 650, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(73, 8, 'V3', 3, 1, 390.00, 700, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(74, 8, 'V4', 3, 1, 390.00, 700, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(75, 8, 'V5', 4, 2, 360.00, 680, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(76, 8, 'V6', 4, 2, 360.00, 680, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(77, 8, 'V7', 3, 2, 410.00, 730, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(78, 8, 'V8', 3, 2, 410.00, 730, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(79, 8, 'V9', 5, 3, 490.00, 820, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(80, 8, 'V10', 5, 3, 490.00, 820, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(81, 9, '101', 1, 1, 170.00, 310, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(82, 9, '102', 2, 1, 240.00, 460, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(83, 9, '201', 3, 2, 380.00, 660, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(84, 9, '202', 1, 2, 170.00, 310, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(85, 9, '301', 2, 3, 240.00, 460, 3, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(86, 9, '302', 3, 3, 380.00, 660, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(87, 9, '401', 4, 4, 310.00, 570, 5, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(88, 9, '402', 5, 4, 460.00, 780, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(89, 9, '501', 3, 5, 420.00, 710, 4, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43'),
-(90, 9, '502', 5, 5, 500.00, 820, 2, NULL, 'Available', 1, '2025-10-03 15:48:43', '2025-10-03 15:48:43');
+(1, 1, '101', 1, 1, 148.91, 300, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(2, 1, '102', 2, 1, 218.40, 450, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(3, 1, '201', 3, 2, 347.46, 650, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(4, 1, '202', 1, 2, 148.91, 300, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(5, 1, '301', 2, 3, 218.40, 450, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(6, 1, '302', 3, 3, 347.46, 650, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(7, 1, '401', 4, 4, 277.97, 550, 5, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(8, 1, '402', 5, 4, 416.96, 750, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(9, 1, '501', 3, 5, 377.24, 700, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(10, 1, '502', 5, 5, 446.74, 800, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-04 06:50:37'),
+(11, 2, '101', 1, 1, 180.00, 320, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(12, 2, '102', 2, 1, 250.00, 480, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(13, 2, '201', 3, 2, 400.00, 680, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(14, 2, '202', 1, 2, 180.00, 320, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(15, 2, '301', 2, 3, 250.00, 480, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(16, 2, '302', 3, 3, 400.00, 680, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(17, 2, '401', 4, 4, 320.00, 580, 5, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(18, 2, '402', 3, 4, 420.00, 700, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(19, 2, '501', 3, 5, 450.00, 750, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(20, 2, '502', 5, 5, 520.00, 850, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(21, 3, '101', 1, 1, 140.00, 280, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(22, 3, '102', 2, 1, 210.00, 420, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(23, 3, '201', 3, 2, 320.00, 620, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(24, 3, '202', 1, 2, 140.00, 280, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(25, 3, '301', 2, 3, 210.00, 420, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(26, 3, '302', 3, 3, 320.00, 620, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(27, 3, '401', 4, 4, 270.00, 540, 5, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(28, 3, '402', 2, 4, 220.00, 440, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(29, 3, '501', 3, 5, 350.00, 680, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(30, 3, '502', 5, 5, 410.00, 780, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(31, 4, '101', 1, 1, 190.00, 310, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(32, 4, '102', 2, 1, 270.00, 470, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(33, 4, '201', 3, 2, 410.00, 670, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(34, 4, '202', 1, 2, 190.00, 310, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(35, 4, '301', 2, 3, 270.00, 470, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(36, 4, '302', 3, 3, 410.00, 670, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(37, 4, '401', 4, 4, 340.00, 590, 5, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(38, 4, '402', 5, 4, 480.00, 790, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(39, 4, '501', 3, 5, 440.00, 720, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(40, 4, '502', 5, 5, 510.00, 830, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(41, 5, '101', 1, 1, 130.00, 290, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(42, 5, '102', 2, 1, 200.00, 430, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(43, 5, '201', 3, 2, 310.00, 630, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(44, 5, '202', 1, 2, 130.00, 290, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(45, 5, '301', 2, 3, 200.00, 430, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(46, 5, '302', 3, 3, 310.00, 630, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(47, 5, '401', 4, 4, 260.00, 530, 5, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(48, 5, '402', 2, 4, 210.00, 450, 3, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(49, 5, '501', 3, 5, 340.00, 670, 4, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(50, 5, '502', 5, 5, 400.00, 770, 2, NULL, 'Available', 1, '2025-10-03 16:16:55', '2025-10-03 16:16:55'),
+(51, 6, '101', 1, 1, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(52, 6, '102', 1, 1, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(53, 6, '201', 2, 2, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(54, 6, '202', 2, 2, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(55, 6, '301', 3, 3, 280.00, 600, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(56, 6, '302', 1, 3, 120.00, 280, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(57, 6, '401', 2, 4, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(58, 6, '402', 3, 4, 280.00, 600, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(59, 6, '501', 4, 5, 240.00, 520, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(60, 6, '502', 2, 5, 180.00, 400, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(61, 7, '101', 2, 1, 280.00, 490, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(62, 7, '102', 3, 1, 420.00, 690, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(63, 7, '201', 3, 2, 450.00, 720, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(64, 7, '202', 5, 2, 530.00, 840, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(65, 7, '301', 3, 3, 450.00, 720, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(66, 7, '302', 5, 3, 530.00, 840, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(67, 7, '401', 3, 4, 480.00, 750, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(68, 7, '402', 5, 4, 560.00, 870, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(69, 7, '501', 3, 5, 520.00, 800, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(70, 7, '502', 5, 5, 600.00, 900, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(71, 8, 'V1', 4, 1, 340.00, 650, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(72, 8, 'V2', 4, 1, 340.00, 650, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(73, 8, 'V3', 3, 1, 390.00, 700, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(74, 8, 'V4', 3, 1, 390.00, 700, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(75, 8, 'V5', 4, 2, 360.00, 680, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(76, 8, 'V6', 4, 2, 360.00, 680, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(77, 8, 'V7', 3, 2, 410.00, 730, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(78, 8, 'V8', 3, 2, 410.00, 730, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(79, 8, 'V9', 5, 3, 490.00, 820, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(80, 8, 'V10', 5, 3, 490.00, 820, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(81, 9, '101', 1, 1, 170.00, 310, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(82, 9, '102', 2, 1, 240.00, 460, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(83, 9, '201', 3, 2, 380.00, 660, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(84, 9, '202', 1, 2, 170.00, 310, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(85, 9, '301', 2, 3, 240.00, 460, 3, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(86, 9, '302', 3, 3, 380.00, 660, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(87, 9, '401', 4, 4, 310.00, 570, 5, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(88, 9, '402', 5, 4, 460.00, 780, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(89, 9, '501', 3, 5, 420.00, 710, 4, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(90, 9, '502', 5, 5, 500.00, 820, 2, NULL, 'Available', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56');
 
 --
 -- Triggers `rooms`
@@ -982,11 +1104,11 @@ CREATE TABLE `room_types` (
 --
 
 INSERT INTO `room_types` (`type_id`, `type_name`, `description`, `max_occupancy`, `amenities`, `created_at`) VALUES
-(1, 'Standard', 'Comfortable room with basic amenities', 2, '[\"TV\", \"WiFi\", \"Air Conditioning\"]', '2025-10-03 15:48:43'),
-(2, 'Deluxe', 'Spacious room with premium amenities', 3, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Mini Bar\", \"City View\"]', '2025-10-03 15:48:43'),
-(3, 'Suite', 'Luxurious suite with separate living area', 4, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Mini Bar\", \"Ocean View\", \"Jacuzzi\"]', '2025-10-03 15:48:43'),
-(4, 'Family Room', 'Large room suitable for families', 5, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Kitchenette\", \"Extra Beds\"]', '2025-10-03 15:48:43'),
-(5, 'Executive Suite', 'Premium suite for business travelers', 2, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Workstation\", \"Meeting Room Access\", \"Lounge Access\"]', '2025-10-03 15:48:43');
+(1, 'Standard', 'Comfortable room with basic amenities', 2, '[\"TV\", \"WiFi\", \"Air Conditioning\"]', '2025-10-03 16:16:55'),
+(2, 'Deluxe', 'Spacious room with premium amenities', 3, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Mini Bar\", \"City View\"]', '2025-10-03 16:16:55'),
+(3, 'Suite', 'Luxurious suite with separate living area', 4, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Mini Bar\", \"Ocean View\", \"Jacuzzi\"]', '2025-10-03 16:16:55'),
+(4, 'Family Room', 'Large room suitable for families', 5, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Kitchenette\", \"Extra Beds\"]', '2025-10-03 16:16:55'),
+(5, 'Executive Suite', 'Premium suite for business travelers', 2, '[\"TV\", \"WiFi\", \"Air Conditioning\", \"Workstation\", \"Meeting Room Access\", \"Lounge Access\"]', '2025-10-03 16:16:55');
 
 -- --------------------------------------------------------
 
@@ -1005,6 +1127,22 @@ CREATE TABLE `services` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `services`
+--
+
+INSERT INTO `services` (`service_id`, `hotel_id`, `service_name`, `description`, `price`, `service_type`, `is_active`, `created_at`, `updated_at`) VALUES
+(1, 1, 'Spa Treatment', 'Relaxing massage and treatments', 120.00, 'Spa', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(2, 1, 'Room Service', '24/7 in-room dining', 35.00, 'Room Service', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(3, 1, 'Airport Transfer', 'Luxury car service', 75.00, 'Transport', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(4, 2, 'Scuba Diving Lesson', 'Beginner diving course', 150.00, 'Other', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(5, 2, 'Beach Cabana Rental', 'Private beach cabana', 80.00, 'Other', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(6, 3, 'Ski Equipment Rental', 'Full ski gear', 65.00, 'Other', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(7, 4, 'Personal Shopping', 'Fashion district tour', 200.00, 'Other', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(8, 5, 'Tea Service', 'Afternoon tea experience', 45.00, 'Restaurant', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(9, 7, 'Yacht Charter', 'Private harbor cruise', 800.00, 'Transport', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56'),
+(10, 8, 'Nature Guide Tour', 'Forest exploration', 95.00, 'Other', 1, '2025-10-03 16:16:56', '2025-10-03 16:16:56');
 
 -- --------------------------------------------------------
 
@@ -1220,6 +1358,32 @@ ALTER TABLE `admins`
   ADD KEY `idx_admin_email` (`email`);
 
 --
+-- Indexes for table `ai_query_favorites`
+--
+ALTER TABLE `ai_query_favorites`
+  ADD PRIMARY KEY (`favorite_id`),
+  ADD UNIQUE KEY `unique_admin_name` (`admin_id`,`favorite_name`),
+  ADD KEY `idx_admin` (`admin_id`),
+  ADD KEY `idx_category` (`category`);
+
+--
+-- Indexes for table `ai_query_history`
+--
+ALTER TABLE `ai_query_history`
+  ADD PRIMARY KEY (`history_id`),
+  ADD KEY `idx_admin` (`admin_id`),
+  ADD KEY `idx_created` (`created_at`),
+  ADD KEY `idx_favorite` (`is_favorite`);
+
+--
+-- Indexes for table `ai_usage_stats`
+--
+ALTER TABLE `ai_usage_stats`
+  ADD PRIMARY KEY (`stat_id`),
+  ADD UNIQUE KEY `unique_admin_date` (`admin_id`,`usage_date`),
+  ADD KEY `idx_date` (`usage_date`);
+
+--
 -- Indexes for table `bookings`
 --
 ALTER TABLE `bookings`
@@ -1335,10 +1499,28 @@ ALTER TABLE `admins`
   MODIFY `admin_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
+-- AUTO_INCREMENT for table `ai_query_favorites`
+--
+ALTER TABLE `ai_query_favorites`
+  MODIFY `favorite_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `ai_query_history`
+--
+ALTER TABLE `ai_query_history`
+  MODIFY `history_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT for table `ai_usage_stats`
+--
+ALTER TABLE `ai_usage_stats`
+  MODIFY `stat_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `booking_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `events`
@@ -1350,7 +1532,7 @@ ALTER TABLE `events`
 -- AUTO_INCREMENT for table `event_bookings`
 --
 ALTER TABLE `event_bookings`
-  MODIFY `event_booking_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `event_booking_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `guests`
@@ -1374,7 +1556,7 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `reviews`
 --
 ALTER TABLE `reviews`
-  MODIFY `review_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `review_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `rooms`
@@ -1392,7 +1574,7 @@ ALTER TABLE `room_types`
 -- AUTO_INCREMENT for table `services`
 --
 ALTER TABLE `services`
-  MODIFY `service_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `service_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `system_logs`
@@ -1403,6 +1585,24 @@ ALTER TABLE `system_logs`
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `ai_query_favorites`
+--
+ALTER TABLE `ai_query_favorites`
+  ADD CONSTRAINT `fk_favorite_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`admin_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `ai_query_history`
+--
+ALTER TABLE `ai_query_history`
+  ADD CONSTRAINT `fk_history_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`admin_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `ai_usage_stats`
+--
+ALTER TABLE `ai_usage_stats`
+  ADD CONSTRAINT `fk_stats_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`admin_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `bookings`
